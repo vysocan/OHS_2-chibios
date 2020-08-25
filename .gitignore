@@ -1,0 +1,7 @@
+/demos/*
+/doc/*
+/test/*
+/testhal/*
+*.7z
+*.zip
+*.old
