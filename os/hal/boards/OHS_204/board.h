@@ -62,7 +62,9 @@
 /*
  * MCU type as defined in the ST header.
  */
+#if !defined(STM32F437xx)
 #define STM32F437xx
+#endif
 
 /*
  * IO pins assignments.

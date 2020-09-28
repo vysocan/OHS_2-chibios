@@ -47,6 +47,7 @@
 #include "lwip/api.h"
 #define XMALLOC(s,h,t) chibios_alloc(h,s)
 #define XFREE(p,h,t)   chibios_free(p)
+#include "umm_malloc.h"
 
 struct sslconn {
     WOLFSSL_CTX *ctx;

@@ -79,6 +79,7 @@ int custom_rand_generate_block(unsigned char* output, unsigned int sz);
 #define NO_DES3
 #define NO_RC4
 
+#define WOLFSSL_AES_DIRECT
 
 /* Realloc (to use without USE_FAST_MATH) */
 

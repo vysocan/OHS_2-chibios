@@ -200,6 +200,7 @@ uint32_t TimeNowInMilliseconds(void)
     return ST2MS(t);
 }
 
+#ifdef WOLFSSL_HEAP
 void *chHeapRealloc (void *addr, uint32_t size)
 {
     union heap_header *hp;
@@ -249,4 +250,18 @@ void chibios_free(void *ptr)
     if (ptr)
         chHeapFree(ptr);
 }
+#else
+// TODO OHS make all chHeap* as umm_*
 
+void *chHeapRealloc (void *addr, uint32_t size) {
+  return umm_realloc(addr, size);
+}
+
+void *chibios_alloc(void *heap, int size){
+  return umm_malloc(size);
+}
+
+void chibios_free(void *ptr) {
+  if (ptr) umm_free(ptr);
+}
+#endif

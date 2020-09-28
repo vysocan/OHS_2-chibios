@@ -100,13 +100,15 @@ extern mutex_t SD3mtx;
  * Vysocan:
  * ChibiOS print macro
  */
-//#define LWIP_PRINT(...)  {while(!chMtxTryLock(&SD3mtx));chprintf((BaseSequentialStream*) &SD3, __VA_ARGS__);chMtxUnlock(&SD3mtx);}
-#define LWIP_PRINT(...)  {chprintf((BaseSequentialStream*) &SD3, __VA_ARGS__); chprintf((BaseSequentialStream*) &SD3, "\r");}
+#ifndef LWIP_PRINT
+#define LWIP_PRINT(...)
+#endif
 
 #define LWIP_PLATFORM_DIAG(x) {LWIP_PRINT x;}
 
+// - chprintf((BaseSequentialStream*) &SD3, "\r\nAssertion: %s, failed at line %d in %s\r\n", x, __LINE__, __FILE__);
 #define LWIP_PLATFORM_ASSERT(x) {\
-   chprintf((BaseSequentialStream*) &SD3, "\r\nAssertion: %s, failed at line %d in %s\r\n", x, __LINE__, __FILE__);\
+   LWIP_PRINT("\r\nAssertion: %s, failed at line %d in %s\r\n", x, __LINE__, __FILE__);\
    chSysHalt("LwIP assert"); }
 
 // was line 1: LWIP_PRINT("\r\nAssertion \"%s\" failed at line %d in %s\n", x, __LINE__, __FILE__);

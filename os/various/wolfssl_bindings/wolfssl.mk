@@ -6,6 +6,7 @@ WOLFBINDSRC = \
         $(CHIBIOS)/os/various/wolfssl_bindings/hwrng.c
 
 WOLFCRYPTSRC = \
+	$(WOLFSSL)/wolfcrypt/src/port/st/stm32.c \
 	$(WOLFSSL)/wolfcrypt/src/sha.c \
 	$(WOLFSSL)/wolfcrypt/src/ge_low_mem.c \
 	$(WOLFSSL)/wolfcrypt/src/compress.c \
@@ -88,6 +89,7 @@ WOLFSRC = $(WOLFBINDSRC) $(WOLFCRYPTSRC) $(WOLFSSLSRC)
 
 WOLFINC = \
         $(CHIBIOS)/os/various/wolfssl_bindings \
+        $(WOLFSSL)/wolfssl/wolfcrypt/port/st \
         $(WOLFSSL)/wolfcrypt/include \
         $(WOLFSSL)/wolfssl/include \
 		$(WOLFSSL)
