@@ -128,7 +128,7 @@
 /**
  * @brief   Absolute maximum system clock.
  */
-#define STM32_SYSCLK_MAX        180000000
+#define STM32_SYSCLK_MAX        216000000 //180000000
 
 /**
  * @brief   Maximum HSE clock frequency.
@@ -188,7 +188,7 @@
 /**
  * @brief   Maximum PLL output clock frequency.
  */
-#define STM32_PLLOUT_MAX        180000000
+#define STM32_PLLOUT_MAX        216000000 //180000000
 
 /**
  * @brief   Minimum PLL output clock frequency.
@@ -1050,7 +1050,7 @@
 #define STM32_2WS_THRESHOLD         90000000
 #define STM32_3WS_THRESHOLD         120000000
 #define STM32_4WS_THRESHOLD         150000000
-#define STM32_5WS_THRESHOLD         180000000
+#define STM32_5WS_THRESHOLD         216000000 //180000000
 #define STM32_6WS_THRESHOLD         0
 #define STM32_7WS_THRESHOLD         0
 #define STM32_8WS_THRESHOLD         0

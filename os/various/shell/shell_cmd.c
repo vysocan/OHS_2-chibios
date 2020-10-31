@@ -95,6 +95,11 @@ static void cmd_info(BaseSequentialStream *chp, int argc, char *argv[]) {
 #ifdef BOARD_NAME
   chprintf(chp, "Board:        %s" SHELL_NEWLINE_STR, BOARD_NAME);
 #endif
+#ifdef STM32_PLLN_VALUE
+#ifdef STM32_PLLP_VALUE
+  chprintf(chp, "Frequency:    %d Mhz" SHELL_NEWLINE_STR, STM32_PLLN_VALUE/STM32_PLLP_VALUE);
+#endif
+#endif
 #ifdef __DATE__
 #ifdef __TIME__
   chprintf(chp, "Build time:   %s%s%s" SHELL_NEWLINE_STR, __DATE__, " - ", __TIME__);
