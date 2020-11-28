@@ -1,12 +1,12 @@
 /* cryptocb.c
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
  * wolfSSL is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
+ * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
  * wolfSSL is distributed in the hope that it will be useful,
@@ -44,7 +44,7 @@ typedef struct CryptoCb {
     CryptoDevCallbackFunc cb;
     void* ctx;
 } CryptoCb;
-static CryptoCb gCryptoDev[MAX_CRYPTO_DEVID_CALLBACKS];
+static WOLFSSL_GLOBAL CryptoCb gCryptoDev[MAX_CRYPTO_DEVID_CALLBACKS];
 
 static CryptoCb* wc_CryptoCb_FindDevice(int devId)
 {
@@ -382,7 +382,6 @@ int wc_CryptoCb_AesCbcEncrypt(Aes* aes, byte* out,
         dev = wc_CryptoCb_FindDeviceByIndex(0);
     }
 
-    dev = wc_CryptoCb_FindDevice(aes->devId);
     if (dev && dev->cb) {
         wc_CryptoInfo cryptoInfo;
         XMEMSET(&cryptoInfo, 0, sizeof(cryptoInfo));
@@ -433,6 +432,72 @@ int wc_CryptoCb_AesCbcDecrypt(Aes* aes, byte* out,
 }
 #endif /* HAVE_AES_CBC */
 #endif /* !NO_AES */
+
+#ifndef NO_DES3
+int wc_CryptoCb_Des3Encrypt(Des3* des3, byte* out,
+                               const byte* in, word32 sz)
+{
+    int ret = CRYPTOCB_UNAVAILABLE;
+    CryptoCb* dev;
+
+    /* locate registered callback */
+    if (des3) {
+        dev = wc_CryptoCb_FindDevice(des3->devId);
+    }
+    else {
+        /* locate first callback and try using it */
+        dev = wc_CryptoCb_FindDeviceByIndex(0);
+    }
+
+    if (dev && dev->cb) {
+        wc_CryptoInfo cryptoInfo;
+        XMEMSET(&cryptoInfo, 0, sizeof(cryptoInfo));
+        cryptoInfo.algo_type = WC_ALGO_TYPE_CIPHER;
+        cryptoInfo.cipher.type = WC_CIPHER_DES3;
+        cryptoInfo.cipher.enc = 1;
+        cryptoInfo.cipher.des3.des = des3;
+        cryptoInfo.cipher.des3.out = out;
+        cryptoInfo.cipher.des3.in = in;
+        cryptoInfo.cipher.des3.sz = sz;
+
+        ret = dev->cb(dev->devId, &cryptoInfo, dev->ctx);
+    }
+
+    return wc_CryptoCb_TranslateErrorCode(ret);
+}
+
+int wc_CryptoCb_Des3Decrypt(Des3* des3, byte* out,
+                               const byte* in, word32 sz)
+{
+    int ret = CRYPTOCB_UNAVAILABLE;
+    CryptoCb* dev;
+
+    /* locate registered callback */
+    if (des3) {
+        dev = wc_CryptoCb_FindDevice(des3->devId);
+    }
+    else {
+        /* locate first callback and try using it */
+        dev = wc_CryptoCb_FindDeviceByIndex(0);
+    }
+
+    if (dev && dev->cb) {
+        wc_CryptoInfo cryptoInfo;
+        XMEMSET(&cryptoInfo, 0, sizeof(cryptoInfo));
+        cryptoInfo.algo_type = WC_ALGO_TYPE_CIPHER;
+        cryptoInfo.cipher.type = WC_CIPHER_DES3;
+        cryptoInfo.cipher.enc = 0;
+        cryptoInfo.cipher.des3.des = des3;
+        cryptoInfo.cipher.des3.out = out;
+        cryptoInfo.cipher.des3.in = in;
+        cryptoInfo.cipher.des3.sz = sz;
+
+        ret = dev->cb(dev->devId, &cryptoInfo, dev->ctx);
+    }
+
+    return wc_CryptoCb_TranslateErrorCode(ret);
+}
+#endif /* !NO_DES3 */
 
 #ifndef NO_SHA
 int wc_CryptoCb_ShaHash(wc_Sha* sha, const byte* in,

@@ -1,6 +1,6 @@
 /* suites.c
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -31,6 +31,10 @@
 #include <string.h>
 #include <wolfssl/ssl.h>
 #include <tests/unit.h>
+#if defined(HAVE_ECC) && defined(FP_ECC) && defined(HAVE_THREAD_LS) \
+                      && (defined(NO_MAIN_DRIVER) || defined(HAVE_STACK_SIZE))
+#include <wolfssl/wolfcrypt/ecc.h>
+#endif
 
 
 #define MAX_ARGS 40
@@ -114,7 +118,7 @@ static int IsOldTlsVersion(const char* line)
 
 
 /* if the cipher suite on line is valid store in suite and return 1, else 0 */
-static int IsValidCipherSuite(const char* line, char* suite)
+static int IsValidCipherSuite(const char* line, char *suite, size_t suite_spc)
 {
     int  found = 0;
     int  valid = 0;
@@ -122,6 +126,9 @@ static int IsValidCipherSuite(const char* line, char* suite)
     const char* find = "-l ";
     const char* begin = strstr(line, find);
     const char* end;
+
+    if (suite_spc < MAX_SUITE_SZ+1)
+        return 0;
 
     suite[0] = '\0';
 
@@ -148,10 +155,10 @@ static int IsValidCipherSuite(const char* line, char* suite)
 
     /* if QSH not enabled then do not use QSH suite */
     #ifdef HAVE_QSH
-        if (XSTRNCMP(suite, "QSH", 3) == 0) {
+        if (suite[0] && (XSTRNCMP(suite, "QSH", 3) == 0)) {
             if (wolfSSL_CTX_set_cipher_list(cipherSuiteCtx, suite + 4)
                                                                  != WOLFSSL_SUCCESS)
-            return 0;
+                return 0;
         }
     #endif
 
@@ -171,6 +178,10 @@ static int IsValidCert(const char* line)
     size_t i;
     const char* begin;
     char cert[80];
+#ifdef WOLFSSL_STATIC_MEMORY
+    FILE* fStream = NULL;
+    long chkSz = 0;
+#endif
 
     begin = XSTRSTR(line, "-c ");
     if (begin == NULL)
@@ -180,6 +191,24 @@ static int IsValidCert(const char* line)
     for (i = 0; i < sizeof(cert) - 1 && *begin != ' ' && *begin != '\0'; i++)
         cert[i] = *(begin++);
     cert[i] = '\0';
+#ifdef WOLFSSL_STATIC_MEMORY
+    fStream = XFOPEN(cert, "rb");
+    if (fStream == NULL) {
+        printf("Failed to open file %s\n", cert);
+        printf("Invalid cert, skipping test\n");
+        return 0;
+    } else {
+        printf("Successfully opened file\n");
+    }
+
+    XFSEEK(fStream, 0L, SEEK_END);
+    chkSz = XFTELL(fStream);
+    XFCLOSE(fStream);
+    if (chkSz > LARGEST_MEM_BUCKET) {
+        printf("File is larger than largest bucket, skipping this test\n");
+        return 0;
+    }
+#endif
 
     ctx = wolfSSL_CTX_new(wolfSSLv23_server_method_ex(NULL));
     if (ctx == NULL)
@@ -223,6 +252,40 @@ static int IsValidCA(const char* line)
     return ret;
 }
 
+#ifdef WOLFSSL_NO_CLIENT_AUTH
+static int IsClientAuth(const char* line, int* reqClientCert)
+{
+    const char* begin;
+
+    begin = XSTRSTR(line, "-H verifyFail");
+    if (begin != NULL) {
+        return 1;
+    }
+
+    begin = XSTRSTR(line, "-d");
+    if (begin != NULL) {
+        *reqClientCert = 0;
+    }
+    else {
+        *reqClientCert = 1;
+    }
+
+    return 0;
+}
+
+static int IsNoClientCert(const char* line)
+{
+    const char* begin;
+
+    begin = XSTRSTR(line, "-x");
+    if (begin != NULL) {
+        return 1;
+    }
+
+    return 0;
+}
+#endif
+
 static int execute_test_case(int svr_argc, char** svr_argv,
                              int cli_argc, char** cli_argv,
                              int addNoVerify, int addNonBlocking,
@@ -252,6 +315,9 @@ static int execute_test_case(int svr_argc, char** svr_argv,
     char        portNumber[8];
 #endif
     int         cliTestShouldFail = 0, svrTestShouldFail = 0;
+#ifdef WOLFSSL_NO_CLIENT_AUTH
+    int         reqClientCert;
+#endif
 
     /* Is Valid Cipher and Version Checks */
     /* build command list for the Is checks below */
@@ -266,7 +332,7 @@ static int execute_test_case(int svr_argc, char** svr_argv,
         strcat(commandLine, svr_argv[i]);
         strcat(commandLine, flagSep);
     }
-    if (IsValidCipherSuite(commandLine, cipherSuite) == 0) {
+    if (IsValidCipherSuite(commandLine, cipherSuite, sizeof cipherSuite) == 0) {
         #ifdef DEBUG_SUITE_TESTS
             printf("cipher suite %s not supported in build\n", cipherSuite);
         #endif
@@ -301,6 +367,15 @@ static int execute_test_case(int svr_argc, char** svr_argv,
             printf("protocol version on line %s is too old\n", commandLine);
         #endif
         return VERSION_TOO_OLD;
+    }
+#endif
+#ifdef WOLFSSL_NO_CLIENT_AUTH
+    if (IsClientAuth(commandLine, &reqClientCert)) {
+        #ifdef DEBUG_SUITE_TESTS
+            printf("client auth on line %s not supported in build\n",
+                   commandLine);
+        #endif
+        return NOT_BUILT_IN;
     }
 #endif
 
@@ -428,7 +503,17 @@ static int execute_test_case(int svr_argc, char** svr_argv,
         #endif
         return NOT_BUILT_IN;
     }
+#ifdef WOLFSSL_NO_CLIENT_AUTH
+    if (reqClientCert && IsNoClientCert(commandLine)) {
+        #ifdef DEBUG_SUITE_TESTS
+            printf("client auth on line %s not supported in build\n",
+                   commandLine);
+        #endif
+        return NOT_BUILT_IN;
+    }
+#endif
     printf("trying client command line[%d]: %s\n", tests, commandLine);
+    tests++;
 
     /* determine based on args if this test is expected to fail */
     if (XSTRSTR(commandLine, exitWithRetFlag) != NULL) {
@@ -441,14 +526,16 @@ static int execute_test_case(int svr_argc, char** svr_argv,
     /* verify results */
     if ((cliArgs.return_code != 0 && cliTestShouldFail == 0) ||
         (cliArgs.return_code == 0 && cliTestShouldFail != 0)) {
-        printf("client_test failed\n");
+        printf("client_test failed %d %s\n", cliArgs.return_code, 
+            cliTestShouldFail ? "(should fail)" : "");
         XEXIT(EXIT_FAILURE);
     }
 
     join_thread(serverThread);
     if ((svrArgs.return_code != 0 && svrTestShouldFail == 0) ||
         (svrArgs.return_code == 0 && svrTestShouldFail != 0)) {
-        printf("server_test failed\n");
+        printf("server_test failed %d %s\n", svrArgs.return_code,
+            svrTestShouldFail ? "(should fail)" : "");
         XEXIT(EXIT_FAILURE);
     }
 
@@ -481,6 +568,8 @@ static void test_harness(void* vargs)
     int   cliArgsSz;
     char* cursor;
     char* comment;
+    char  lastChar = '\0';
+    int   do_it = 0;
     const char* fname = "tests/test.conf";
     const char* addArgs = NULL;
 
@@ -542,21 +631,28 @@ static void test_harness(void* vargs)
     cliArgsSz = 1;
     cliArgs[0] = args->argv[0];
 
-    while (*cursor != 0) {
-        int do_it = 0;
-
+    while (cursor && *cursor != 0) {
         switch (*cursor) {
             case '\n':
                 /* A blank line triggers test case execution or switches
                    to client mode if we don't have the client command yet */
-                if (cliMode == 0)
-                    cliMode = 1;  /* switch to client mode processing */
-                /* skip extra newlines */
-                else
-                    do_it = 1;    /* Do It, we have server and client */
+                if (lastChar != '\n' && (cliArgsSz > 1 || svrArgsSz > 1)) {
+                    if (cliMode == 0)
+                        cliMode = 1;  /* switch to client mode processing */
+                    else
+                        do_it = 1;    /* Do It, we have server and client */
+                }
+            #ifdef DEBUG_SUITE_TESTS
+                else {
+                    /* skip extra new-lines */
+                    printf("skipping extra new line\n");
+                }
+            #endif
+                lastChar = *cursor;
                 cursor++;
                 break;
             case '#':
+                lastChar = *cursor;
                 /* Ignore lines that start with a # */
                 comment = XSTRSEP(&cursor, "\n");
             #ifdef DEBUG_SUITE_TESTS
@@ -569,11 +665,12 @@ static void test_harness(void* vargs)
             default:
                 /* Parameters start with a -. They end in either a newline
                  * or a space. Capture until either, save in Args list. */
+                lastChar = *cursor;
                 if (cliMode)
                     cliArgs[cliArgsSz++] = XSTRSEP(&cursor, " \n");
                 else
                     svrArgs[svrArgsSz++] = XSTRSEP(&cursor, " \n");
-                if (*cursor == '\0') /* eof */
+                if (cursor == NULL || *cursor == '\0') /* eof */
                     do_it = 1;
                 break;
         }
@@ -631,6 +728,7 @@ static void test_harness(void* vargs)
             svrArgsSz = 1;
             cliArgsSz = 1;
             cliMode   = 0;
+            do_it     = 0;
         }
     }
 
@@ -717,6 +815,18 @@ int SuiteTest(int argc, char** argv)
     /* any extra cases will need another argument */
     args.argc = 2;
 
+#ifdef WOLFSSL_OLDTLS_SHA2_CIPHERSUITES
+    /* SHA-2 cipher suites in old TLS versions */
+    strcpy(argv0[1], "tests/test-sha2.conf");
+    printf("starting SHA-2 cipher suite in old TLS versions tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
+
 #ifdef WOLFSSL_TLS13
     /* add TLSv13 extra suites */
     strcpy(argv0[1], "tests/test-tls13.conf");
@@ -761,6 +871,29 @@ int SuiteTest(int argc, char** argv)
         goto exit;
     }
 #endif
+#if defined(HAVE_CURVE448) && defined(HAVE_ED448)
+    /* add ED448 certificate cipher suite tests */
+    strcpy(argv0[1], "tests/test-ed448.conf");
+    printf("starting ED448 extra cipher suite tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
+#if (defined(HAVE_ECC521) || defined(HAVE_ALL_CURVES)) && \
+                                                         defined(WOLFSSL_SHA512)
+    /* add P-521 certificate cipher suite tests */
+    strcpy(argv0[1], "tests/test-p521.conf");
+    printf("starting P-521 extra cipher suite tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
 #ifdef WOLFSSL_DTLS
     /* add dtls extra suites */
     strcpy(argv0[1], "tests/test-dtls.conf");
@@ -771,6 +904,68 @@ int SuiteTest(int argc, char** argv)
         args.return_code = EXIT_FAILURE;
         goto exit;
     }
+    /* add dtls grouping tests */
+    strcpy(argv0[1], "tests/test-dtls-group.conf");
+    printf("starting dtls message grouping tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+    /* add dtls session resumption tests */
+    strcpy(argv0[1], "tests/test-dtls-resume.conf");
+    printf("starting dtls session resumption tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#ifdef HAVE_SECURE_RENEGOTIATION
+    /* add dtls renegotiation tests */
+    strcpy(argv0[1], "tests/test-dtls-reneg-client.conf");
+    printf("starting dtls secure renegotiation client tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+    strcpy(argv0[1], "tests/test-dtls-reneg-server.conf");
+    printf("starting dtls secure renegotiation server tests\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
+#ifdef WOLFSSL_OLDTLS_SHA2_CIPHERSUITES
+    /* add dtls extra suites */
+    strcpy(argv0[1], "tests/test-dtls-sha2.conf");
+    printf("starting dtls extra cipher suite tests - old TLS sha-2 cs\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
+#ifndef WOLFSSL_NO_DTLS_SIZE_CHECK
+    /* failure tests */
+    args.argc = 3;
+    strcpy(argv0[1], "tests/test-dtls-fails.conf");
+    strcpy(argv0[2], "expFail"); /* tests are expected to fail */
+    printf("starting dtls tests that expect failure\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+    strcpy(argv0[2], "");
+#endif
 #endif
 #ifdef WOLFSSL_SCTP
     /* add dtls-sctp extra suites */
@@ -782,6 +977,17 @@ int SuiteTest(int argc, char** argv)
         args.return_code = EXIT_FAILURE;
         goto exit;
     }
+#ifdef WOLFSSL_OLDTLS_SHA2_CIPHERSUITES
+    /* add dtls-sctp extra suites */
+    strcpy(argv0[1], "tests/test-sctp-sha2.conf");
+    printf("starting dtls-sctp extra cipher suite tests - old TLS sha-2 cs\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
 #endif
 #ifndef WC_STRICT_SIG
 #if !defined(NO_RSA) && defined(HAVE_ECC) /* testing mixed ECC/RSA cert */
@@ -806,6 +1012,16 @@ int SuiteTest(int argc, char** argv)
         args.return_code = EXIT_FAILURE;
         goto exit;
     }
+#ifdef WOLFSSL_OLDTLS_SHA2_CIPHERSUITES
+    strcpy(argv0[1], "tests/test-qsh-sha2.conf");
+    printf("starting qsh extra cipher suite tests - old TLS sha-2 cs\n");
+    test_harness(&args);
+    if (args.return_code != 0) {
+        printf("error from script %d\n", args.return_code);
+        args.return_code = EXIT_FAILURE;
+        goto exit;
+    }
+#endif
 #endif
 #ifndef NO_PSK
     #ifndef WOLFSSL_NO_TLS12
@@ -833,7 +1049,8 @@ int SuiteTest(int argc, char** argv)
     }
     #endif
 #endif
-#if defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3)
+#if defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3) && !defined(NO_MD5) &&\
+    !defined(NO_SHA)
     /* test encrypted keys */
     strcpy(argv0[1], "tests/test-enckeys.conf");
     printf("starting encrypted keys extra cipher suite tests\n");
@@ -906,7 +1123,7 @@ int SuiteTest(int argc, char** argv)
     args.argc = 3;
     strcpy(argv0[1], "tests/test-dhprime.conf");
     strcpy(argv0[2], "doDH"); /* add DH prime flag */
-    printf("starting tests that expect failure\n");
+    printf("starting dh prime tests\n");
     test_harness(&args);
     if (args.return_code != 0) {
         printf("error from script %d\n", args.return_code);
@@ -932,6 +1149,10 @@ exit:
     wolfSSL_CTX_free(cipherSuiteCtx);
     wolfSSL_Cleanup();
 
+#if defined(HAVE_ECC) && defined(FP_ECC) && defined(HAVE_THREAD_LS) \
+                      && (defined(NO_MAIN_DRIVER) || defined(HAVE_STACK_SIZE))
+    wc_ecc_fp_free();  /* free per thread cache */
+#endif
 #ifdef WOLFSSL_ASYNC_CRYPT
     wolfAsync_DevClose(&devId);
 #endif
@@ -939,7 +1160,7 @@ exit:
     return args.return_code;
 #else
     return NOT_COMPILED_IN;
-#endif /* !NO_WOLFSSL_SERVER && !NO_WOLFSSL_CLIENT */
     (void)argc;
     (void)argv;
+#endif /* !NO_WOLFSSL_SERVER && !NO_WOLFSSL_CLIENT */
 }

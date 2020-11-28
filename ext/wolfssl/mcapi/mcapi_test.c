@@ -1,6 +1,6 @@
 /* mcapi_test.c
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -53,7 +53,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include "PIC32MZ-serial.h"
-    #define  SYSTEMConfigPerformance /* void out SYSTEMConfigPerformance(); */
+    #define  SYSTEMConfigPerformance(n) /* void out SYSTEMConfigPerformance(); */
 #elif defined(MICROCHIP_PIC32)
     #define PIC32_STARTER_KIT
     #include <stdio.h>
@@ -233,8 +233,13 @@ static int check_md5(void)
         ret = wc_Md5Final(&defMd5, defDigest);
     }
 
-    if (memcmp(mcDigest, defDigest, CRYPT_MD5_DIGEST_SIZE) != 0) {
-        printf("md5 final memcmp fialed\n");
+    if (ret != 0) {
+        printf("md5 failed\n");
+        return -1;
+    }
+
+    if (ret == 0 && memcmp(mcDigest, defDigest, CRYPT_MD5_DIGEST_SIZE) != 0) {
+        printf("md5 final memcmp failed\n");
         return -1;
     }
     printf("md5         mcapi test passed\n");
@@ -1437,7 +1442,7 @@ static int check_ecc(void)
         return -1;
     }
 
-    if (usedA != usedB || usedA <= 0) {
+    if (usedA != usedB || usedA == 0) {
         printf("mcapi ecc make shared secret output size match failed\n");
         return -1;
     }
@@ -1456,7 +1461,7 @@ static int check_ecc(void)
     }
 
     sigSz = usedA;
-    if (sigSz <= 0) {
+    if (sigSz == 0) {
         printf("mcapi ecc sign hash bad sig size\n");
         return -1;
     }

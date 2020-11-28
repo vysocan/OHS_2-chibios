@@ -1,6 +1,6 @@
 /* sha512.c
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -26,7 +26,7 @@
 
 #include <wolfssl/wolfcrypt/settings.h>
 
-#if defined(WOLFSSL_SHA512) || defined(WOLFSSL_SHA384)
+#if (defined(WOLFSSL_SHA512) || defined(WOLFSSL_SHA384)) && !defined(WOLFSSL_ARMASM) && !defined(WOLFSSL_PSOC6_CRYPTO)
 
 #if defined(HAVE_FIPS) && \
 	defined(HAVE_FIPS_VERSION) && (HAVE_FIPS_VERSION >= 2)
@@ -221,9 +221,12 @@ static int InitSha512(wc_Sha512* sha512)
         esp_sha_hw_unlock();
     }
     /* always set mode as INIT
-    *  whether using HW or SW is detemined at first call of update()
+    *  whether using HW or SW is determined at first call of update()
     */
     sha512->ctx.mode = ESP32_SHA_INIT;
+#endif
+#if defined(WOLFSSL_HASH_FLAGS) || defined(WOLF_CRYPTO_CB)
+    sha512->flags = 0;
 #endif
     return 0;
 }
@@ -334,11 +337,33 @@ static int InitSha512(wc_Sha512* sha512)
     static int (*Transform_Sha512_Len_p)(wc_Sha512* sha512, word32 len) = NULL;
     static int transform_check = 0;
     static int intel_flags;
+    static int Transform_Sha512_is_vectorized = 0;
+#if 0
     #define Transform_Sha512(sha512)     (*Transform_Sha512_p)(sha512)
     #define Transform_Sha512_Len(sha512, len) \
                                           (*Transform_Sha512_Len_p)(sha512, len)
+#endif
 
-    static void Sha512_SetTransform()
+    #define Transform_Sha512(sha512) ({                \
+        int _ret;                                      \
+        if (Transform_Sha512_is_vectorized)            \
+            SAVE_VECTOR_REGISTERS();                   \
+        _ret = (*Transform_Sha512_p)(sha512);          \
+        if (Transform_Sha512_is_vectorized)            \
+            RESTORE_VECTOR_REGISTERS();                \
+        _ret;                                          \
+    })
+#define Transform_Sha512_Len(sha512, len) ({           \
+        int _ret;                                      \
+        if (Transform_Sha512_is_vectorized)            \
+            SAVE_VECTOR_REGISTERS();                   \
+        _ret = (*Transform_Sha512_Len_p)(sha512, len); \
+        if (Transform_Sha512_is_vectorized)            \
+            RESTORE_VECTOR_REGISTERS();                \
+        _ret;                                          \
+    })
+
+    static void Sha512_SetTransform(void)
     {
         if (transform_check)
             return;
@@ -351,17 +376,20 @@ static int InitSha512(wc_Sha512* sha512)
             if (IS_INTEL_BMI2(intel_flags)) {
                 Transform_Sha512_p = Transform_Sha512_AVX2_RORX;
                 Transform_Sha512_Len_p = Transform_Sha512_AVX2_RORX_Len;
+                Transform_Sha512_is_vectorized = 1;
             }
             else
         #endif
             if (1) {
                 Transform_Sha512_p = Transform_Sha512_AVX2;
                 Transform_Sha512_Len_p = Transform_Sha512_AVX2_Len;
+                Transform_Sha512_is_vectorized = 1;
             }
         #ifdef HAVE_INTEL_RORX
             else {
                 Transform_Sha512_p = Transform_Sha512_AVX1_RORX;
                 Transform_Sha512_Len_p = Transform_Sha512_AVX1_RORX_Len;
+                Transform_Sha512_is_vectorized = 1;
             }
         #endif
         }
@@ -371,10 +399,14 @@ static int InitSha512(wc_Sha512* sha512)
         if (IS_INTEL_AVX1(intel_flags)) {
             Transform_Sha512_p = Transform_Sha512_AVX1;
             Transform_Sha512_Len_p = Transform_Sha512_AVX1_Len;
+            Transform_Sha512_is_vectorized = 1;
         }
         else
     #endif
+        {
             Transform_Sha512_p = _Transform_Sha512;
+            Transform_Sha512_is_vectorized = 1;
+        }
 
         transform_check = 1;
     }
@@ -395,6 +427,9 @@ int wc_InitSha512_ex(wc_Sha512* sha512, void* heap, int devId)
         return BAD_FUNC_ARG;
 
     sha512->heap = heap;
+#ifdef WOLFSSL_SMALL_STACK_CACHE
+    sha512->W = NULL;
+#endif
 
     ret = InitSha512(sha512);
     if (ret != 0)
@@ -402,10 +437,6 @@ int wc_InitSha512_ex(wc_Sha512* sha512, void* heap, int devId)
 
 #if defined(HAVE_INTEL_AVX1) || defined(HAVE_INTEL_AVX2)
     Sha512_SetTransform();
-#endif
-
-#ifdef WOLFSSL_SMALL_STACK_CACHE
-    sha512->W = NULL;
 #endif
 
 #if defined(WOLFSSL_ASYNC_CRYPT) && defined(WC_ASYNC_ENABLE_SHA512)
@@ -504,8 +535,7 @@ static int _Transform_Sha512(wc_Sha512* sha512)
 #ifdef WOLFSSL_SMALL_STACK_CACHE
     word64* W = sha512->W;
     if (W == NULL) {
-        W = (word64*) XMALLOC(sizeof(word64) * 16, NULL,
-                                                       DYNAMIC_TYPE_TMP_BUFFER);
+        W = (word64*)XMALLOC(sizeof(word64) * 16, NULL,DYNAMIC_TYPE_TMP_BUFFER);
         if (W == NULL)
             return MEMORY_E;
         sha512->W = W;
@@ -752,6 +782,9 @@ static WC_INLINE int Sha512Final(wc_Sha512* sha512)
      defined(NO_WOLFSSL_ESP32WROOM32_CRYPT_HASH)
         ret = Transform_Sha512(sha512);
 #else
+       if(sha512->ctx.mode == ESP32_SHA_INIT) {
+            esp_sha_try_hw_lock(&sha512->ctx);
+       }
         ret = esp_sha512_process(sha512);
         if(ret == 0 && sha512->ctx.mode == ESP32_SHA_SW){
             ret = Transform_Sha512(sha512);
@@ -927,10 +960,13 @@ static int InitSha384(wc_Sha384* sha384)
         esp_sha_hw_unlock();
     }
     /* always set mode as INIT
-    *  whether using HW or SW is detemined at first call of update()
+    *  whether using HW or SW is determined at first call of update()
     */
     sha384->ctx.mode = ESP32_SHA_INIT;
 
+#endif
+#if defined(WOLFSSL_HASH_FLAGS) || defined(WOLF_CRYPTO_CB)
+    sha384->flags = 0;
 #endif
 
     return 0;
@@ -1010,15 +1046,16 @@ int wc_InitSha384_ex(wc_Sha384* sha384, void* heap, int devId)
     }
 
     sha384->heap = heap;
+#ifdef WOLFSSL_SMALL_STACK_CACHE
+    sha384->W = NULL;
+#endif
+
     ret = InitSha384(sha384);
     if (ret != 0)
         return ret;
 
 #if defined(HAVE_INTEL_AVX1) || defined(HAVE_INTEL_AVX2)
     Sha512_SetTransform();
-#endif
-#ifdef WOLFSSL_SMALL_STACK_CACHE
-    sha384->W = NULL;
 #endif
 
 #if defined(WOLFSSL_ASYNC_CRYPT) && defined(WC_ASYNC_ENABLE_SHA384)

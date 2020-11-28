@@ -1,6 +1,6 @@
 /* wifi_connect.c 
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -27,12 +27,15 @@
 #include "lwip/netdb.h"
 #include "lwip/apps/sntp.h"
 #include "nvs_flash.h"
+#if ESP_IDF_VERSION_MAJOR >= 4
+#include "protocol_examples_common.h"
+#endif
 
 const static int CONNECTED_BIT = BIT0;
 static EventGroupHandle_t wifi_event_group;
 /* prefix for logging */
 const static char *TAG = "tls_server";
-/* proto-type difinition */
+/* proto-type definition */
 extern void tls_smp_server_task();
 static void tls_smp_server_init();
 
@@ -45,8 +48,10 @@ static void set_time()
     time_t now;
     struct tm timeinfo;
     char strftime_buf[64];
-
-    utctime.tv_sec = 1542008020; /* dummy time: Mon Nov 12 07:33:40 2018 */
+    /* please update the time if seeing unknown failure. */
+    /* this could cause TLS communication failure due to time expiration */
+    /* incleasing 31536000 seconds is close to spend 356 days.           */
+    utctime.tv_sec = 1598661910; /* dummy time: Fri Aug 29 09:45:00 2020 */
     utctime.tv_usec = 0;
     tz.tz_minuteswest = 0;
     tz.tz_dsttime = 0;
@@ -59,9 +64,11 @@ static void set_time()
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(TAG, "The current date/time is: %s", strftime_buf);
 
+#if ESP_IDF_VERSION_MAJOR < 4
     /* wait until wifi connect */
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                                             false, true, portMAX_DELAY);
+#endif
     /* now we start client tasks. */
     tls_smp_server_init();
 }
@@ -83,7 +90,7 @@ static void tls_smp_server_init(void)
         ESP_LOGI(TAG, "create thread %s failed", TLS_SMP_SERVER_TASK_NAME);
     }
 }
-/* event hander for wifi events */
+/* event handler for wifi events */
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 {
     switch (event->event_id)
@@ -92,8 +99,13 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         esp_wifi_connect();
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
+#if ESP_IDF_VERSION_MAJOR >= 4
+        ESP_LOGI(TAG, "got ip:" IPSTR "\n",
+                 IP2STR(&event->event_info.got_ip.ip_info.ip));
+#else
         ESP_LOGI(TAG, "got ip:%s",
                  ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
+#endif
         /* http://esp32.info/docs/esp_idf/html/dd/d08/group__xEventGroupSetBits.html */
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
         break;
@@ -114,9 +126,21 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initialize wifi");
     /* TCP/IP adapter initialization */
+#if ESP_IDF_VERSION_MAJOR >= 4 && ESP_IDF_VERSION_MINOR >= 1
+    esp_netif_init();
+#else
     tcpip_adapter_init();
-
+#endif
     /* */
+#if ESP_IDF_VERSION_MAJOR >= 4
+    (void) wifi_event_handler;
+   ESP_ERROR_CHECK(esp_event_loop_create_default());
+   /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+   * Read "Establishing Wi-Fi or Ethernet Connection" section in
+   * examples/protocols/README.md for more information about this function.
+   */
+    ESP_ERROR_CHECK(example_connect());
+#else
     wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -138,6 +162,7 @@ void app_main(void)
     ESP_LOGI(TAG, "wifi_init_sta finished.");
     ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
                                         TLS_SMP_WIFI_SSID, TLS_SMP_WIFI_PASS);
-    ESP_LOGI(TAG, "Set Dummy time...");
+#endif
+    ESP_LOGI(TAG, "Set dummy time...");
     set_time();
 }

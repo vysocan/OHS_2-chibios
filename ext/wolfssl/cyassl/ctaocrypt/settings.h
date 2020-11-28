@@ -1,6 +1,6 @@
 /* settings.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -341,7 +341,9 @@
         #undef SIZEOF_LONG
         #define SIZEOF_LONG_LONG 8
     #else
-        #sslpro: settings.h - please implement SIZEOF_LONG and SIZEOF_LONG_LONG
+        #if !defined(SIZEOF_LONG) && !defined(SIZEOF_LONG_LONG)
+            #error settings.h - please implement SIZEOF_LONG and SIZEOF_LONG_LONG
+        #endif
     #endif
 
     #define XMALLOC(s, h, type) ((void *)rtp_malloc((s), SSL_PRO_MALLOC))
@@ -704,12 +706,6 @@
     #else
         #define CYASSL_GENERAL_ALIGNMENT  0
     #endif
-#endif
-
-#ifdef HAVE_CRL
-    /* not widely supported yet */
-    #undef NO_SKID
-    #define NO_SKID
 #endif
 
 

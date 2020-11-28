@@ -1,6 +1,6 @@
 /* helper.c
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -150,6 +150,7 @@ int construct_argv()
 /* entry point */
 void app_main(void)
 {
+    (void) TAG;
 #ifndef NO_CRYPT_BENCHMARK
 
 /* when using atecc608a on esp32-wroom-32se */

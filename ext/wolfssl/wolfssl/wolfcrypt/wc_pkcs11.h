@@ -1,12 +1,12 @@
 /* wc_pkcs11.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
  * wolfSSL is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
+ * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
  * wolfSSL is distributed in the hope that it will be useful,
@@ -33,6 +33,11 @@
 #include <wolfssl/wolfcrypt/cryptocb.h>
 #include <wolfssl/wolfcrypt/pkcs11.h>
 
+#ifdef __cplusplus
+    extern "C" {
+#endif
+
+
 typedef struct Pkcs11Dev {
     void*             dlHandle;         /* Handle to library  */
     CK_FUNCTION_LIST* func;             /* Array of functions */
@@ -52,10 +57,6 @@ typedef struct Pkcs11Session {
     CK_SLOT_ID        slotId;           /* Id of slot to use                  */
     CK_SESSION_HANDLE handle;           /* Handle to active session           */
 } Pkcs11Session;
-
-#ifdef __cplusplus
-    extern "C" {
-#endif
 
 /* Types of keys that can be stored. */
 enum Pkcs11KeyType {

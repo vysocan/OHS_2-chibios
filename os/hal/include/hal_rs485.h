@@ -42,18 +42,20 @@
  * @name    Serial status flags
  * @{
  */
-#define SD_PARITY_ERROR             (eventflags_t)32    /**< @brief Parity.     */
-#define SD_FRAMING_ERROR            (eventflags_t)64    /**< @brief Framing.    */
-#define SD_OVERRUN_ERROR            (eventflags_t)128   /**< @brief Overflow.   */
-#define SD_NOISE_ERROR              (eventflags_t)256   /**< @brief Line noise. */
-#define SD_BREAK_DETECTED           (eventflags_t)512   /**< @brief LIN Break.  */
-#define SD_QUEUE_FULL_ERROR         (eventflags_t)1024  /**< @brief Queue full. */
-#define RS485_MSG_RECEIVED          (eventflags_t)2048  /**< @brief Incoming message */
-#define RS485_MSG_XOR_ERROR         (eventflags_t)4096  /**< @brief Incoming message has faulty XOR */
-#define RS485_MSG_INVALID           (eventflags_t)8192  /**< @brief Incoming message is invalid */
-#define RS485_RECEIVING_INTERRUPTED (eventflags_t)16384  /**< @brief Receiving interrupted, not finished */
-#define RS485_ACK_ERROR             (eventflags_t)32468  /**< @brief Temporary 1 */
-#define RS485_ACK_ERROR1            (eventflags_t)65535  /**< @brief Temporary 1 */
+#define SD_PARITY_ERROR              (eventflags_t)32    /**< @brief Parity.     */
+#define SD_FRAMING_ERROR             (eventflags_t)64    /**< @brief Framing.    */
+#define SD_OVERRUN_ERROR             (eventflags_t)128   /**< @brief Overflow.   */
+#define SD_NOISE_ERROR               (eventflags_t)256   /**< @brief Line noise. */
+#define SD_BREAK_DETECTED            (eventflags_t)512   /**< @brief LIN Break.  */
+/* #define SD_QUEUE_FULL_ERROR (eventflags_t)1024  Queue full. */
+#define RS485_MSG_RECEIVED           (eventflags_t)1024  /**< @brief Incoming message */
+#define RS485_MSG_XOR_ERROR          (eventflags_t)2048  /**< @brief Incoming message has faulty XOR */
+#define RS485_MSG_INVALID            (eventflags_t)4096  /**< @brief Incoming message is invalid */
+#define RS485_RECEIVING_NOT_CONTINUE (eventflags_t)8192  /**< @brief Receiving interrupted, not finished */
+#define RS485_ACK_ERROR              (eventflags_t)16384  /**< @brief ACK error on addresses*/
+#define RS485_ACK_ERROR_CRC          (eventflags_t)32468  /**< @brief ACK error on CRC */
+#define RS485_ACK_ERROR_CMD          (eventflags_t)65535  /**< @brief ACK error on CMD, was 1024: Queue full.: SD_QUEUE_FULL_ERROR */
+#define RS485_MSG_RECEIVED_WA        (eventflags_t)131072
 /** @} */
 
 /*===========================================================================*/

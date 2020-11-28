@@ -1,6 +1,6 @@
 /* random.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -149,6 +149,23 @@ typedef struct OS_Seed {
     #define WC_RNG_TYPE_DEFINED
 #endif
 
+#ifdef HAVE_HASHDRBG
+struct DRBG_internal {
+    word32 reseedCtr;
+    word32 lastBlock;
+    byte V[DRBG_SEED_LEN];
+    byte C[DRBG_SEED_LEN];
+#if defined(WOLFSSL_ASYNC_CRYPT) || defined(WOLF_CRYPTO_CB)
+    void* heap;
+    int devId;
+#endif
+    byte   matchCount;
+#ifdef WOLFSSL_SMALL_STACK_CACHE
+    wc_Sha256 sha256;
+#endif
+};
+#endif
+
 /* RNG context */
 struct WC_RNG {
     OS_Seed seed;
@@ -156,6 +173,9 @@ struct WC_RNG {
 #ifdef HAVE_HASHDRBG
     /* Hash-based Deterministic Random Bit Generator */
     struct DRBG* drbg;
+#if defined(WOLFSSL_NO_MALLOC) && !defined(WOLFSSL_STATIC_MEMORY)
+    struct DRBG_internal drbg_data;
+#endif
     byte status;
 #endif
 #ifdef WOLFSSL_ASYNC_CRYPT
@@ -185,13 +205,18 @@ int wc_GenerateSeed(OS_Seed* os, byte* seed, word32 sz);
     WOLFSSL_API int  wc_FreeNetRandom(void);
 #endif /* HAVE_WNR */
 
+
+WOLFSSL_ABI WOLFSSL_API WC_RNG* wc_rng_new(byte*, word32, void*);
+WOLFSSL_ABI WOLFSSL_API void wc_rng_free(WC_RNG*);
+
+
 #ifndef WC_NO_RNG
 WOLFSSL_API int  wc_InitRng(WC_RNG*);
 WOLFSSL_API int  wc_InitRng_ex(WC_RNG* rng, void* heap, int devId);
 WOLFSSL_API int  wc_InitRngNonce(WC_RNG* rng, byte* nonce, word32 nonceSz);
 WOLFSSL_API int  wc_InitRngNonce_ex(WC_RNG* rng, byte* nonce, word32 nonceSz,
                                     void* heap, int devId);
-WOLFSSL_API int  wc_RNG_GenerateBlock(WC_RNG*, byte*, word32 sz);
+WOLFSSL_ABI WOLFSSL_API int wc_RNG_GenerateBlock(WC_RNG*, byte*, word32 sz);
 WOLFSSL_API int  wc_RNG_GenerateByte(WC_RNG*, byte*);
 WOLFSSL_API int  wc_FreeRng(WC_RNG*);
 #else
@@ -200,7 +225,7 @@ WOLFSSL_API int  wc_FreeRng(WC_RNG*);
 #define wc_InitRng_ex(rng, h, d) NOT_COMPILED_IN
 #define wc_InitRngNonce(rng, n, s) NOT_COMPILED_IN
 #define wc_InitRngNonce_ex(rng, n, s, h, d) NOT_COMPILED_IN
-#define wc_RNG_GenerateBlock(rng, b, s) NOT_COMPILED_IN
+#define wc_RNG_GenerateBlock(rng, b, s) ({(void)rng; (void)b; (void)s; NOT_COMPILED_IN;})
 #define wc_RNG_GenerateByte(rng, b) NOT_COMPILED_IN
 #define wc_FreeRng(rng) (void)NOT_COMPILED_IN
 #endif

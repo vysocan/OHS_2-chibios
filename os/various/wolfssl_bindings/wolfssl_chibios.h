@@ -45,10 +45,29 @@
 #include "lwip/opt.h"
 #include "lwip/arch.h"
 #include "lwip/api.h"
+
+#ifdef WOLFSSL_HEAP_ON_UMM
+#include "umm_malloc.h"
+#endif
+
+#if (defined WOLFSSL_USE_NETCONN) && (defined WOLFSSL_USE_SOCKET)
+#error "Select only one lwip API to use"
+#endif
+
+#if (!defined WOLFSSL_USE_NETCONN) && (!defined WOLFSSL_USE_SOCKET)
+#error "Select at least one lwip API to use"
+#endif
+
+#ifdef WOLFSSL_HEAP_ON_UMM
+#define XMALLOC(s,h,t)    umm_malloc(s)
+#define XFREE(p,h,t)      umm_free(p)
+#define XREALLOC(p,n,h,t) umm_realloc((p),(n))
+#else
 #define XMALLOC(s,h,t) chibios_alloc(h,s)
 #define XFREE(p,h,t)   chibios_free(p)
-#include "umm_malloc.h"
+#endif
 
+#if defined WOLFSSL_USE_NETCONN
 struct sslconn {
     WOLFSSL_CTX *ctx;
     WOLFSSL *ssl;
@@ -60,12 +79,16 @@ typedef struct sslconn sslconn;
 sslconn *sslconn_accept(struct sslconn *sk);
 sslconn *sslconn_new(enum netconn_type t, WOLFSSL_METHOD *method);
 void sslconn_close(sslconn *sk);
+#endif
 
 int wolfssl_send_cb(WOLFSSL* ssl, char *buf, int sz, void *ctx);
 int wolfssl_recv_cb(WOLFSSL *ssl, char *buf, int sz, void *ctx);
 
+#ifndef WOLFSSL_HEAP_ON_UMM
 void *chibios_alloc(void *heap, int size);
-void chibios_free(void *ptr);
+void  chibios_free(void *ptr);
+#endif
 word32 LowResTimer(void);
 
+void wolfSslLoggingCb(const int logLevel, const char *const logMessage);
 #endif

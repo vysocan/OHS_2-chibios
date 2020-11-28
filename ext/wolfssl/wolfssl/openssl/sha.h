@@ -1,6 +1,6 @@
 /* sha.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -39,7 +39,11 @@
 
 typedef struct WOLFSSL_SHA_CTX {
     /* big enough to hold wolfcrypt Sha, but check on init */
+#if defined(STM32_HASH)
+    void* holder[(112 + WC_ASYNC_DEV_SIZE + sizeof(STM32_HASH_Context)) / sizeof(void*)];
+#else
     void* holder[(112 + WC_ASYNC_DEV_SIZE) / sizeof(void*)];
+#endif
     #ifdef WOLF_CRYPTO_CB
     void* cryptocb_holder[(sizeof(int) + sizeof(void*) + 4) / sizeof(void*)];
     #endif
@@ -73,8 +77,8 @@ typedef WOLFSSL_SHA_CTX SHA_CTX;
 #ifdef WOLFSSL_SHA224
 
 /* Using ALIGN16 because when AES-NI is enabled digest and buffer in Sha256
- * struct are 16 byte aligned. Any derefrence to those elements after casting to
- * Sha224, is expected to also be 16 byte aligned addresses.  */
+ * struct are 16 byte aligned. Any dereference to those elements after casting
+ * to Sha224, is expected to also be 16 byte aligned addresses.  */
 typedef struct WOLFSSL_SHA224_CTX {
     /* big enough to hold wolfcrypt Sha224, but check on init */
     ALIGN16 void* holder[(272 + WC_ASYNC_DEV_SIZE) / sizeof(void*)];
@@ -100,8 +104,8 @@ typedef WOLFSSL_SHA224_CTX SHA224_CTX;
 
 
 /* Using ALIGN16 because when AES-NI is enabled digest and buffer in Sha256
- * struct are 16 byte aligned. Any derefrence to those elements after casting to
- * Sha256, is expected to also be 16 byte aligned addresses.  */
+ * struct are 16 byte aligned. Any dereference to those elements after casting
+ * to Sha256, is expected to also be 16 byte aligned addresses.  */
 typedef struct WOLFSSL_SHA256_CTX {
     /* big enough to hold wolfcrypt Sha256, but check on init */
     ALIGN16 void* holder[(272 + WC_ASYNC_DEV_SIZE) / sizeof(void*)];

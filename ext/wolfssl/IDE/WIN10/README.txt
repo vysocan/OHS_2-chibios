@@ -3,6 +3,7 @@
 First, if you did not get the FIPS files with your archive, you must contact
 wolfSSL to obtain them.
 
+The IDE/WIN10/wolfssl-fips.sln solution is for the FIPS v2 #3389 certificate or later.
 
 # Building the wolfssl-fips project
 
@@ -18,7 +19,7 @@ single function. WPO also optimizes away the automatic FIPS entry function.
 Each of the source files inside the FIPS boundary defines their own code and
 constant section. The code section names start with ".fipsA$" and the constant
 section names start with ".fipsB$". Each subsection has a letter to organize
-them in a secific order. This specific ordering puts marker functions and
+them in a specific order. This specific ordering puts marker functions and
 constants on either end of the boundary so it can be hashed.
 
 
@@ -47,6 +48,7 @@ check value when changing your application.
 The default build options should be the proper default set of options:
 
  * HAVE_FIPS
+ * HAVE_FIPS_VERSION=2 (or 3 with WOLFSSL_FIPS_READY)
  * HAVE_THREAD_LS
  * HAVE_AESGCM
  * HAVE_HASHDRBG
@@ -67,4 +69,4 @@ Additionally one may enable:
  * OPENSSL_EXTRA
  * WOLFSSL_KEY_GEN
 
-These settings are defined in IDE/WIN/user_settings.h.
+These settings are defined in IDE/WIN10/user_settings.h.

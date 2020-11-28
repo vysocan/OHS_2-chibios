@@ -1,6 +1,6 @@
 /* user_settings.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -42,6 +42,19 @@
 #define HAVE_CURVE25519
 #define CURVE25519_SMALL
 #define HAVE_ED25519
+
+/* when you want to use pkcs7 */
+/* #define HAVE_PKCS7 */
+
+#if defined(HAVE_PKCS7)
+    #define HAVE_AES_KEYWRAP
+    #define HAVE_X963_KDF
+    #define WOLFSSL_AES_DIRECT
+#endif
+
+/* when you want to use aes counter mode */
+/* #define WOLFSSL_AES_DIRECT */
+/* #define WOLFSSL_AES_COUNTER */
 
 /* esp32-wroom-32se specific definition */
 #if defined(WOLFSSL_ESPWROOM32SE)

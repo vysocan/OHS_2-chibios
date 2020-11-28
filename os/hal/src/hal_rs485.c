@@ -42,7 +42,7 @@ static void  rs485InvalidateReceiving(RS485Driver *rs485p, eventflags_t flag) {
  */
 static void rs485ReceiveTimeutCB(void *p) {
   osalSysLockFromISR();
-  rs485InvalidateReceiving((RS485Driver *)p, RS485_RECEIVING_INTERRUPTED);
+  rs485InvalidateReceiving((RS485Driver *)p, RS485_RECEIVING_NOT_CONTINUE);
   osalSysUnlockFromISR();
 }
 
@@ -205,9 +205,9 @@ void rs485IncomingDataI(RS485Driver *rs485p, uint8_t b) {
         // Create header
         rs485p->ob[0] = (rs485p->config->address << 4) | (((rs485p->ib[0] >> 4)) & 0b1111);
         if (((rs485p->ib[1] >> 6 ) & 0b1) == RS485_FLAG_DTA) {
-          rs485p->ob[1] = 0b10000000; // RS485_FLAG_ACK + RS485_FLAG_DTA + 0 length, but leave flags
+          rs485p->ob[1] = 0b10000000; // RS485_FLAG_ACK + RS485_FLAG_DTA + length(0)
         } else {
-          rs485p->ob[1] = 0b11000000; // RS485_FLAG_ACK + RS485_FLAG_CMD + 0 length, but leave flags
+          rs485p->ob[1] = 0b11000000; // RS485_FLAG_ACK + RS485_FLAG_CMD + length(0)
         }
         rs485p->ob[2] = rs485p->ob[0] ^ rs485p->ob[1];  // Create XOR
         if (((rs485p->ib[1] >> 6 ) & 0b1) == RS485_FLAG_DTA) {
@@ -219,7 +219,6 @@ void rs485IncomingDataI(RS485Driver *rs485p, uint8_t b) {
         RS485D2.usart->CR1|= USART_CR1_TXEIE;
       } else { // ACK not requested
         rs485p->trcState = TRC_RECEIVED;
-        //chnAddFlagsI(rs485p, RS485_MSG_RECEIVED);
         osalEventBroadcastFlagsI(&rs485p->event, RS485_MSG_RECEIVED);
         chBSemSignalI(&rs485p->received);
       }
@@ -236,13 +235,13 @@ void rs485IncomingDataI(RS485Driver *rs485p, uint8_t b) {
         // Compare CRC
         if ((rs485p->ob[rs485p->obTail-2]) != (rs485p->ib[rs485p->ibHead-2]) ||
             (rs485p->ob[rs485p->obTail-1]) != (rs485p->ib[rs485p->ibHead-1])) {
-          rs485InvalidateReceiving(rs485p, RS485_ACK_ERROR);
+          rs485InvalidateReceiving(rs485p, RS485_ACK_ERROR_CRC);
           return;
         }
       } else {
-        // CMD mismatch, CMD ACK is RS485_FLAG_ACK + RS485_FLAG_CMD + length = 0
+        // CMD mismatch, CMD ACK is RS485_FLAG_ACK + RS485_FLAG_CMD + length(0)
         if (rs485p->ib[1] != 0b11000000) {
-          rs485InvalidateReceiving(rs485p, RS485_ACK_ERROR);
+          rs485InvalidateReceiving(rs485p, RS485_ACK_ERROR_CMD);
           return;
         }
       }

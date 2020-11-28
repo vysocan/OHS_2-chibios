@@ -46,6 +46,9 @@
 #include "lwip/sockets.h"
 #include "lwip/tcp.h"
 #include <string.h>
+#include "chprintf.h"
+
+#if defined WOLFSSL_USE_NETCONN
 static int wolfssl_is_initialized = 0;
 
 sslconn *sslconn_accept(sslconn *sk)
@@ -112,11 +115,11 @@ void sslconn_close(sslconn *sk)
     wolfSSL_free(sk->ssl);
     chHeapFree(sk);
 }
-
+#endif /* WOLFSSL_USE_NETCONN */
 
 /* IO Callbacks */
-int wolfssl_send_cb(WOLFSSL* ssl, char *buf, int sz, void *ctx)
-{
+int wolfssl_send_cb(WOLFSSL* ssl, char *buf, int sz, void *ctx) {
+#if defined WOLFSSL_USE_NETCONN
   sslconn *sk = (sslconn *)ctx;
   int err;
   (void)ssl;
@@ -125,58 +128,71 @@ int wolfssl_send_cb(WOLFSSL* ssl, char *buf, int sz, void *ctx)
     return sz;
   else
     return -2;
+#elif defined WOLFSSL_USE_SOCKET
+  (void)ssl;
+  /* By default, ctx will be a pointer to the file descriptor to write to.
+   * This can be changed by calling wolfSSL_SetIOWriteCtx(). */
+  int sockfd = *(int*)ctx;
+  return write(sockfd, buf, sz);
+#endif
 }
 
-
+#if defined WOLFSSL_USE_NETCONN
 #define MAX_SSL_BUF 1460
 static uint8_t ssl_recv_buffer[MAX_SSL_BUF];
 static int ssl_rb_len = 0;
 static int ssl_rb_off = 0;
+#endif
 
-int wolfssl_recv_cb(WOLFSSL *ssl, char *buf, int sz, void *ctx)
-{
-    sslconn *sk = (sslconn *)ctx;
-    struct netbuf *inbuf = NULL;
-    uint8_t *net_buf;
-    uint16_t buflen;
-    (void)ssl;
-    err_t err;
+int wolfssl_recv_cb(WOLFSSL *ssl, char *buf, int sz, void *ctx) {
+#if defined WOLFSSL_USE_NETCONN
+  sslconn *sk = (sslconn *)ctx;
+  struct netbuf *inbuf = NULL;
+  uint8_t *net_buf;
+  uint16_t buflen;
+  (void)ssl;
+  err_t err;
 
-    if (ssl_rb_len > 0) {
-        if (sz > ssl_rb_len - ssl_rb_off)
-            sz = ssl_rb_len - ssl_rb_off;
-        memcpy(buf, ssl_recv_buffer + ssl_rb_off, sz);
-        ssl_rb_off += sz;
-        if (ssl_rb_off >= ssl_rb_len) {
-            ssl_rb_len = 0;
-            ssl_rb_off = 0;
-        }
-        return sz;
+  if (ssl_rb_len > 0) {
+    if (sz > ssl_rb_len - ssl_rb_off)
+      sz = ssl_rb_len - ssl_rb_off;
+    memcpy(buf, ssl_recv_buffer + ssl_rb_off, sz);
+    ssl_rb_off += sz;
+    if (ssl_rb_off >= ssl_rb_len) {
+      ssl_rb_len = 0;
+      ssl_rb_off = 0;
     }
+     return sz;
+  }
 
 
-    err = netconn_recv(sk->conn, &inbuf);
-    if (err == ERR_OK) {
-        netbuf_data(inbuf, (void **)&net_buf, &buflen);
-        ssl_rb_len = buflen;
-        if (ssl_rb_len > MAX_SSL_BUF)
-            ssl_rb_len = MAX_SSL_BUF;
-        memcpy(ssl_recv_buffer, net_buf, ssl_rb_len);
-        ssl_rb_off = 0;
-        if (sz > ssl_rb_len)
-            sz = ssl_rb_len;
-        memcpy(buf, ssl_recv_buffer, sz);
-        ssl_rb_off += sz;
-        if (ssl_rb_off >= ssl_rb_len) {
-            ssl_rb_len = 0;
-            ssl_rb_off = 0;
-        }
-        netbuf_delete(inbuf);
-        return sz;
+  err = netconn_recv(sk->conn, &inbuf);
+  if (err == ERR_OK) {
+    netbuf_data(inbuf, (void **)&net_buf, &buflen);
+    ssl_rb_len = buflen;
+    if (ssl_rb_len > MAX_SSL_BUF)
+      ssl_rb_len = MAX_SSL_BUF;
+    memcpy(ssl_recv_buffer, net_buf, ssl_rb_len);
+    ssl_rb_off = 0;
+    if (sz > ssl_rb_len)
+      sz = ssl_rb_len;
+    memcpy(buf, ssl_recv_buffer, sz);
+    ssl_rb_off += sz;
+    if (ssl_rb_off >= ssl_rb_len) {
+      ssl_rb_len = 0;
+      ssl_rb_off = 0;
     }
-    else
-        return 0;
+    netbuf_delete(inbuf);
+    return sz;
+  }
+  else
+    return 0;
     //return WOLFSSL_CBIO_ERR_WANT_READ;
+#elif defined WOLFSSL_USE_SOCKET
+  (void)ssl;
+  int sockfd = *(int*)ctx;
+  return read(sockfd, buf, sz);
+#endif
 }
 
 #ifndef ST2S
@@ -194,13 +210,24 @@ word32 LowResTimer(void)
     return ST2S(t);
 }
 
+/*
+word32 epochTime(void) {
+  RTCDateTime date;
+  struct tm now_tm;
+  rtcGetTime(&RTCD0, &date);
+  rtcConvertDateTimeToStructTm(&date, &now_tm, NULL);
+  return (word32) mktime(&now_tm);
+}
+*/
+
 uint32_t TimeNowInMilliseconds(void)
 {
     systime_t t = chVTGetSystemTimeX();
     return ST2MS(t);
 }
 
-#ifdef WOLFSSL_HEAP
+// TODO OHS make all aboe chHeap* as umm_*
+#ifndef WOLFSSL_HEAP_ON_UMM
 void *chHeapRealloc (void *addr, uint32_t size)
 {
     union heap_header *hp;
@@ -250,18 +277,8 @@ void chibios_free(void *ptr)
     if (ptr)
         chHeapFree(ptr);
 }
-#else
-// TODO OHS make all chHeap* as umm_*
-
-void *chHeapRealloc (void *addr, uint32_t size) {
-  return umm_realloc(addr, size);
-}
-
-void *chibios_alloc(void *heap, int size){
-  return umm_malloc(size);
-}
-
-void chibios_free(void *ptr) {
-  if (ptr) umm_free(ptr);
-}
 #endif
+
+void wolfSslLoggingCb(const int logLevel, const char *const logMessage){
+  chprintf((BaseSequentialStream *)&SD3, "%d:%s\n\r", logLevel, logMessage);
+}

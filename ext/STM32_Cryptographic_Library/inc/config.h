@@ -65,7 +65,7 @@
 //#define STM32F2XX
 //#define STM32F21X /*!< Use this if you are using STM32 Series F21X which has the cryptographic hardware accellerators */
 //#define STM32F4XX
-#define STM32F41X /*!< Use this if you are using STM32 Series F41X which has the cryptographic hardware accellerators */
+//#define STM32F41X /*!< Use this if you are using STM32 Series F41X which has the cryptographic hardware accellerators */
 
 /**
   * @}

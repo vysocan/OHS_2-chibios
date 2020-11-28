@@ -1,6 +1,6 @@
 /* sha256_asm
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -22,9 +22,9 @@
 #ifndef HAVE_INTEL_AVX1
 #define HAVE_INTEL_AVX1
 #endif /* HAVE_INTEL_AVX1 */
-#ifndef HAVE_INTEL_AVX2
+#ifndef NO_AVX2_SUPPORT
 #define HAVE_INTEL_AVX2
-#endif /* HAVE_INTEL_AVX2 */
+#endif /* NO_AVX2_SUPPORT */
 
 #ifdef HAVE_INTEL_AVX1
 #ifndef __APPLE__
@@ -22651,3 +22651,7 @@ L_sha256_len_avx2_rorx_done:
 .size	Transform_Sha256_AVX2_RORX_Len,.-Transform_Sha256_AVX2_RORX_Len
 #endif /* __APPLE__ */
 #endif /* HAVE_INTEL_AVX2 */
+
+#if defined(__linux__) && defined(__ELF__)
+.section	.note.GNU-stack,"",%progbits
+#endif

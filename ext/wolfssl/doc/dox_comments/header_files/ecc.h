@@ -55,6 +55,67 @@ int wc_ecc_make_key(WC_RNG* rng, int keysize, ecc_key* key);
 /*!
     \ingroup ECC
 
+    \brief This function generates a new ecc_key and stores it in key.
+
+    \return 0 Returned on success.
+    \return ECC_BAD_ARG_E Returned if rng or key evaluate to NULL
+    \return BAD_FUNC_ARG Returned if the specified key size is not in the
+    correct range of supported keys
+    \return MEMORY_E Returned if there is an error allocating memory while
+    computing the ecc key
+    \return MP_INIT_E may be returned if there is an error while computing
+    the ecc key
+    \return MP_READ_E may be returned if there is an error while computing
+    the ecc key
+    \return MP_CMP_E may be returned if there is an error while computing the
+    ecc key
+    \return MP_INVMOD_E may be returned if there is an error while computing
+    the ecc key
+    \return MP_EXPTMOD_E may be returned if there is an error while computing
+    the ecc key
+    \return MP_MOD_E may be returned if there is an error while computing the
+    ecc key
+    \return MP_MUL_E may be returned if there is an error while computing the
+    ecc key
+    \return MP_ADD_E may be returned if there is an error while computing the
+    ecc key
+    \return MP_MULMOD_E may be returned if there is an error while computing
+    the ecc key
+    \return MP_TO_E may be returned if there is an error while computing the
+    ecc key
+    \return MP_MEM may be returned if there is an error while computing the
+    ecc key
+
+    \param key Pointer to store the created key.
+    \param keysize size of key to be created in bytes, set based on curveId
+    \param rng Rng to be used in key creation
+    \param curve_id Curve to use for key
+
+    _Example_
+    \code
+    ecc_key key;
+    int ret;
+    WC_WC_RNG rng;
+    wc_ecc_init(&key);
+    wc_InitRng(&rng);
+    int curveId = ECC_SECP521R1;
+    int keySize = wc_ecc_get_curve_size_from_id(curveId);
+    ret = wc_ecc_make_key_ex(&rng, keySize, &key, curveId);
+    if (ret != MP_OKAY) {
+        // error handling
+    }
+
+    \endcode
+
+    \sa wc_ecc_make_key
+    \sa wc_ecc_get_curve_size_from_id
+*/
+WOLFSSL_API
+int wc_ecc_make_key_ex(WC_RNG* rng, int keysize, ecc_key* key, int curve_id);
+
+/*!
+    \ingroup ECC
+
     \brief Perform sanity checks on ecc key validity.
 
     \return MP_OKAY Success, key is OK.
@@ -87,6 +148,27 @@ int wc_ecc_make_key(WC_RNG* rng, int keysize, ecc_key* key);
 */
 WOLFSSL_API
 int wc_ecc_check_key(ecc_key* key);
+
+/*!
+    \ingroup ECC
+
+    \brief This function frees an ecc_key key after it has been used.
+
+
+    \param key pointer to the ecc_key structure to free
+
+    _Example_
+    \code
+    // initialize key and perform ECC operations
+    ...
+    wc_ecc_key_free(&key);
+    \endcode
+
+    \sa wc_ecc_key_new
+    \sa wc_ecc_init_ex
+*/
+WOLFSSL_API
+void wc_ecc_key_free(ecc_key* key);
 
 /*!
     \ingroup ECC
@@ -334,6 +416,8 @@ int wc_ecc_sign_hash(const byte* in, word32 inlen, byte* out, word32 *outlen,
     byte digest[] = { initialize with message hash };
     wc_InitRng(&rng); // initialize rng
     wc_ecc_init(&key); // initialize key
+    mp_init(&r); // initialize r component
+    mp_init(&s); // initialize s component
     wc_ecc_make_key(&rng, 32, &key); // make public/private key pair
     ret = wc_ecc_sign_hash_ex(digest, sizeof(digest), &rng, &key, &r, &s);
 
@@ -477,6 +561,54 @@ int wc_ecc_verify_hash_ex(mp_int *r, mp_int *s, const byte* hash,
 */
 WOLFSSL_API
 int wc_ecc_init(ecc_key* key);
+
+/*!
+    \ingroup ECC
+
+    \brief This function initializes an ecc_key object for future
+    use with message verification or key negotiation.
+
+    \return 0 Returned upon successfully initializing the ecc_key object
+    \return MEMORY_E Returned if there is an error allocating memory
+
+    \param key pointer to the ecc_key object to initialize
+    \param devId ID to use with async hardware
+    \param heap pointer to a heap identifier
+
+    _Example_
+    \code
+    ecc_key key;
+    wc_ecc_init_ex(&key, heap, devId);
+    \endcode
+
+    \sa wc_ecc_make_key
+    \sa wc_ecc_free
+    \sa wc_ecc_init
+*/
+WOLFSSL_API
+int wc_ecc_init_ex(ecc_key* key, void* heap, int devId);
+
+/*!
+    \ingroup ECC
+
+    \brief This function uses a user defined heap and allocates space for the
+    key structure.
+
+    \return 0 Returned upon successfully initializing the ecc_key object
+    \return MEMORY_E Returned if there is an error allocating memory
+
+
+    _Example_
+    \code
+    wc_ecc_key_new(&heap);
+    \endcode
+
+    \sa wc_ecc_make_key
+    \sa wc_ecc_key_free
+    \sa wc_ecc_init
+*/
+WOLFSSL_API
+ecc_key* wc_ecc_key_new(void* heap);
 
 /*!
     \ingroup ECC
@@ -951,7 +1083,7 @@ int wc_ecc_export_x963_ex(ecc_key*, byte* out, word32* outLen, int compressed);
     byte buff[] = { initialize with ANSI X9.63 formatted key };
 
     ecc_key pubKey;
-    wc_ecc_init_key(&pubKey);
+    wc_ecc_init(&pubKey);
 
     ret = wc_ecc_import_x963(buff, sizeof(buff), &pubKey);
     if ( ret != 0) {
@@ -1020,7 +1152,7 @@ NOT_COMPILED_IN Returned if the HAVE_COMP_KEY was not enabled at compile
     byte priv[] = { initialize with the raw private key };
 
     ecc_key key;
-    wc_ecc_init_key(&key);
+    wc_ecc_init(&key);
     ret = wc_ecc_import_private_key(priv, sizeof(priv), pub, sizeof(pub),
     &key);
     if ( ret != 0) {
@@ -1689,8 +1821,51 @@ int wc_ecc_encrypt(ecc_key* privKey, ecc_key* pubKey, const byte* msg,
     }
     \endcode
 
-    \sa Wc_ecc_encrypt
+    \sa wc_ecc_encrypt
 */
 WOLFSSL_API
 int wc_ecc_decrypt(ecc_key* privKey, ecc_key* pubKey, const byte* msg,
                 word32 msgSz, byte* out, word32* outSz, ecEncCtx* ctx);
+
+
+/*!
+    \ingroup ECC
+
+    \brief Enable ECC support for non-blocking operations. Supported for 
+        Single Precision (SP) math with the following build options:
+            WOLFSSL_SP_NONBLOCK
+            WOLFSSL_SP_SMALL
+            WOLFSSL_SP_NO_MALLOC
+            WC_ECC_NONBLOCK
+
+    \return 0 Returned upon successfully setting the callback context the input message
+
+    \param key pointer to the ecc_key object
+    \param ctx pointer to ecc_nb_ctx_t structure with stack data cache for SP 
+
+    _Example_
+    \code
+    int ret;
+    ecc_key ecc;
+    ecc_nb_ctx_t nb_ctx;
+
+    ret = wc_ecc_init(&ecc);
+    if (ret == 0) {
+        ret = wc_ecc_set_nonblock(&ecc, &nb_ctx);
+        if (ret == 0) {
+            do {
+                ret = wc_ecc_verify_hash_ex(
+                    &r, &s,       // r/s as mp_int
+                    hash, hashSz, // computed hash digest
+                    &verify_res,  // verification result 1=success
+                    &key
+                );
+
+                // TODO: Real-time work can be called here 
+            } while (ret == FP_WOULDBLOCK);
+        }
+        wc_ecc_free(&key);
+    }
+    \endcode
+*/
+WOLFSSL_API int wc_ecc_set_nonblock(ecc_key *key, ecc_nb_ctx_t* ctx);

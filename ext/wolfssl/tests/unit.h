@@ -1,6 +1,6 @@
 /* unit.c API unit tests driver
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2020 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -88,6 +88,19 @@
 #define AssertStrLT(x, y) AssertStr(x, y,  <, >=)
 #define AssertStrGE(x, y) AssertStr(x, y, >=,  <)
 #define AssertStrLE(x, y) AssertStr(x, y, <=,  >)
+
+#define AssertPtr(x, y, op, er) do {                                           \
+    void* _x = (void*)x;                                                       \
+    void* _y = (void*)y;                                                       \
+    Assert(_x op _y, ("%s " #op " %s", #x, #y), ("%p " #er " %p", _x, _y));    \
+} while(0)
+
+#define AssertPtrEq(x, y) AssertPtr(x, y, ==, !=)
+#define AssertPtrNE(x, y) AssertPtr(x, y, !=, ==)
+#define AssertPtrGT(x, y) AssertPtr(x, y,  >, <=)
+#define AssertPtrLT(x, y) AssertPtr(x, y,  <, >=)
+#define AssertPtrGE(x, y) AssertPtr(x, y, >=,  <)
+#define AssertPtrLE(x, y) AssertPtr(x, y, <=,  >)
 
 
 void ApiTest(void);

@@ -178,7 +178,6 @@ static void set_error(RS485Driver *rs485p, uint16_t sr) {
     sts |= SD_FRAMING_ERROR;
   if (sr & USART_SR_NE)
     sts |= SD_NOISE_ERROR;
-  //chnAddFlagsI(rs485p, sts);
   osalEventBroadcastFlagsI(&rs485p->event, sts);
 }
 
@@ -195,7 +194,6 @@ static void serve_interrupt(RS485Driver *rs485p) {
   /* Special case, LIN break detection.*/
   if (sr & USART_SR_LBD) {
     osalSysLockFromISR();
-    //chnAddFlagsI(rs485p, SD_BREAK_DETECTED);
     // * Not interested in LIN BREAKS * osalEventBroadcastFlagsI(&rs485p->event, SD_BREAK_DETECTED);
     u->SR = ~USART_SR_LBD;
     osalSysUnlockFromISR();
@@ -245,8 +243,7 @@ static void serve_interrupt(RS485Driver *rs485p) {
     if (rs485p->trcState == TRC_SENDING_WITH_ACK) rs485p->trcState = TRC_WAITING_ACK;
     if (rs485p->trcState == TRC_ACKING) {
       rs485p->trcState = TRC_RECEIVED;
-      //chnAddFlagsI(rs485p, RS485_MSG_RECEIVED);
-      osalEventBroadcastFlagsI(&rs485p->event, RS485_MSG_RECEIVED);
+      osalEventBroadcastFlagsI(&rs485p->event, RS485_MSG_RECEIVED_WA);
     }
     osalSysUnlockFromISR();
 
@@ -769,13 +766,13 @@ msg_t rs485_lld_GetMsg(RS485Driver *rs485p, RS485Msg_t *datap){
     rs485_lld_SetTRCReady(rs485p);
     return MSG_OK;
   }
-  else {
-    // Reset header
-    datap->address = 0;
-    datap->ctrl    = 0;
-    datap->ack     = 0;
-    datap->length  = 0;
-  }
+  // Else not received ...
+  // Reset header
+  datap->address = 0;
+  datap->ctrl    = 0;
+  datap->ack     = 0;
+  datap->length  = 0;
+
   return MSG_TIMEOUT;
 }
 
