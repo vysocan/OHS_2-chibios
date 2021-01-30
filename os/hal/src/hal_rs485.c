@@ -144,8 +144,8 @@ void rs485Stop(RS485Driver *rs485p) {
  *          this function directly but copy this code directly into the
  *          interrupt service routine.
  *
- * @param[in] rs485p       pointer to a @p RS485Driver structure
- * @param[in] b         the byte to be written in the driver's Input Queue
+ * @param[in] rs485p pointer to a @p RS485Driver structure
+ * @param[in] b      the byte to be written in the driver's Input Queue
  *
  * @iclass
  */
@@ -193,28 +193,25 @@ void rs485IncomingDataI(RS485Driver *rs485p, uint8_t b) {
         rs485p->trcState = TRC_ACKING;
         // Set DE
         palSetPad(rs485p->config->deport, rs485p->config->depad);
-        // Reset Transmission Complete
-        rs485p->usart->SR= ~USART_SR_TC;
 
         rs485p->obHead = 0;
         rs485p->obTail = RS485_HEADER_SIZE;
-        if (((rs485p->ib[1] >> 6 ) & 0b1) == RS485_FLAG_DTA) {
-          rs485p->obTail += RS485_CRC_SIZE; // Add CRC size
-        }
 
         // Create header
         rs485p->ob[0] = (rs485p->config->address << 4) | (((rs485p->ib[0] >> 4)) & 0b1111);
+        // Data or Command
         if (((rs485p->ib[1] >> 6 ) & 0b1) == RS485_FLAG_DTA) {
           rs485p->ob[1] = 0b10000000; // RS485_FLAG_ACK + RS485_FLAG_DTA + length(0)
+          rs485p->obTail += RS485_CRC_SIZE; // Add CRC size
+          rs485p->ob[3] = rs485p->ib[rs485p->ibExpLen-2]; // Copy CRC
+          rs485p->ob[4] = rs485p->ib[rs485p->ibExpLen-1]; // Copy CRC
         } else {
           rs485p->ob[1] = 0b11000000; // RS485_FLAG_ACK + RS485_FLAG_CMD + length(0)
         }
         rs485p->ob[2] = rs485p->ob[0] ^ rs485p->ob[1];  // Create XOR
-        if (((rs485p->ib[1] >> 6 ) & 0b1) == RS485_FLAG_DTA) {
-          rs485p->ob[3] = rs485p->ib[rs485p->ibExpLen-2]; // Copy CRC
-          rs485p->ob[4] = rs485p->ib[rs485p->ibExpLen-1]; // Copy CRC
-        }
 
+        // Reset Transmission Complete
+        rs485p->usart->SR= ~USART_SR_TC;
         // Enable TX
         RS485D2.usart->CR1|= USART_CR1_TXEIE;
       } else { // ACK not requested
