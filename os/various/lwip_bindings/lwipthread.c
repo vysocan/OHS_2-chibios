@@ -477,7 +477,9 @@ static THD_FUNCTION(lwip_thread, p) {
   };
 
   // OHS added
+  LOCK_TCPIP_CORE();
   netif_add_ext_callback(&netif_callback_1, netifExtCB);
+  UNLOCK_TCPIP_CORE();
 
   netifapi_netif_set_default(&thisif);
   netifapi_netif_set_up(&thisif);

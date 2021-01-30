@@ -58,6 +58,7 @@
 #include "lwip/mem.h"
 #include "lwip/sys.h"
 #include "lwip/stats.h"
+#include "lwip/tcpip.h"
 
 #include "arch/cc.h"
 #include "arch/sys_arch.h"
@@ -237,3 +238,18 @@ u32_t sys_now(void) {
   return (u32_t)(((u64_t)(chVTGetSystemTimeX() - 1) * 1000) / OSAL_ST_FREQUENCY) + 1;
 #endif
 }
+
+#if LWIP_TCPIP_CORE_LOCKING
+void lwip_assert_core_locked(void) {
+  // If the mutex hasn't been initialized yet, then give it a pass.
+  if (lock_tcpip_core == SYS_SEM_NULL) return;
+  // If we're inside an interrupt, then there's no way we can hold the mutex, so give it a pass.
+  //if (isInsideInterrupt()) return;
+  // Ensure that the mutex is currently taken (locked).
+  chSysLock();
+  if (chSemWaitTimeoutS(lock_tcpip_core, TIME_IMMEDIATE) == MSG_OK) {
+    chSysHalt("TCPIP core is not locked!");
+  }
+  chSysUnlock();
+}
+#endif // LWIP_TCPIP_CORE_LOCKING‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍
