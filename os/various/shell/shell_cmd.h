@@ -54,7 +54,7 @@
 #endif
 
 #if !defined(SHELL_CMD_THREADS_ENABLED) || defined(__DOXYGEN__)
-#define SHELL_CMD_THREADS_ENABLED           TRUE
+#define SHELL_CMD_THREADS_ENABLED           FALSE
 #endif
 
 #if !defined(SHELL_CMD_TEST_ENABLED) || defined(__DOXYGEN__)
