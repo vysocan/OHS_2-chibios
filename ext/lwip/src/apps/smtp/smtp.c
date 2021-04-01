@@ -537,7 +537,6 @@ smtp_send_mail_alloced(struct smtp_session *s)
 
 #if LWIP_DNS
   err = dns_gethostbyname(smtp_server, &addr, smtp_dns_found, s);
-  LWIP_DEBUGF(SMTP_DEBUG_WARN_STATE, ("dns_gethostbyname: %d\n", (int)err));
 #else /* LWIP_DNS */
   err = ipaddr_aton(smtp_server, &addr) ? ERR_OK : ERR_ARG;
 #endif /* LWIP_DNS */
@@ -551,8 +550,6 @@ smtp_send_mail_alloced(struct smtp_session *s)
     if (err != ERR_OK) {
       LWIP_DEBUGF(SMTP_DEBUG_WARN_STATE, ("tcp_connect failed: %d\n", (int)err));
       goto deallocate_and_leave;
-    } else {
-      LWIP_DEBUGF(SMTP_DEBUG_STATE, ("tcp_connect OK\n"));
     }
   } else if (err != ERR_INPROGRESS) {
     LWIP_DEBUGF(SMTP_DEBUG_WARN_STATE, ("dns_gethostbyname failed: %d\n", (int)err));
@@ -878,7 +875,6 @@ smtp_dns_found(const char* hostname, const ip_addr_t *ipaddr, void *arg)
       LWIP_DEBUGF(SMTP_DEBUG_STATE, ("smtp_dns_found: hostname resolved, connecting\n"));
       err = altcp_connect(pcb, ipaddr, smtp_server_port, smtp_tcp_connected);
       if (err == ERR_OK) {
-        LWIP_DEBUGF(SMTP_DEBUG_STATE, ("tcp_connect dns OK\n"));
         return;
       }
       LWIP_DEBUGF(SMTP_DEBUG_WARN_STATE, ("tcp_connect failed: %d\n", (int)err));
