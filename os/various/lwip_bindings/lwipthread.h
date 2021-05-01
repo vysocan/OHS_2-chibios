@@ -44,7 +44,7 @@
  * @brief   Default network interface hostname.
  */
 #if !defined(LWIP_THREAD_NAME) || defined(__DOXYGEN__)
-#define LWIP_THREAD_NAME                    "lwipthread"
+#define LWIP_THREAD_NAME                    "lwip"
 #endif
 
 /**

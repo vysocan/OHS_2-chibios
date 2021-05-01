@@ -186,11 +186,6 @@
                 .thumb_func
                 .global _crt0_entry
 _crt0_entry:
-// [rusefi][startup][start]
-    bl rusEfiAsboluteStartupMethod // jump to 'rusEfiStartupMethod'
-    .global rusEfiAsboluteStartupMethodReturnPoint
-rusEfiAsboluteStartupMethodReturnPoint: // custom rusEfi would go back here
-// [rusefi][startup][end]
                 /* Interrupts are globally masked initially.*/
                 cpsid   i
 
