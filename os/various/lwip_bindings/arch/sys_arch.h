@@ -65,4 +65,26 @@ typedef syssts_t        sys_prot_t;
 /* let sys.h use binary semaphores for mutexes */
 #define LWIP_COMPAT_MUTEX 1
 
+/*
+ * Check OSAL reslotuion equal u32_t
+ */
+#if OSAL_ST_RESOLUTION != 32
+#error lwip expects u32_t timer resolution!
+#endif
+/*
+ * lwip needs a u32_t timer that overflows at 32 bit boundary.
+ * Best is to use OSAL_ST_FREQUENCY = 1000, if higher then a virtial timer
+ * is created, to keep the lwip aware about system time.
+ */
+#if OSAL_ST_FREQUENCY > 1000
+/*
+ * Update time of sys_now counter in milliseconds.
+ * For exact presssion set 1, that means every millisecond. Or set higher number
+ * to relieve the virtual timer resources.
+ */
+#define LWIP_SYS_NOW_PRECISION 10
+#elif OSAL_ST_FREQUENCY < 1000
+#error lwip expects OSAL_ST_FREQUENCY >= 1000
+#endif
+
 #endif /* __SYS_ARCH_H__ */
