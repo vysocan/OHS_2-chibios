@@ -184,12 +184,18 @@ static char http_uri_buf[LWIP_HTTPD_URI_BUF_LEN + 1];
 /* The number of individual strings that comprise the headers sent before each
  * requested file.
  */
-#define NUM_FILE_HDR_STRINGS 5
 #define HDR_STRINGS_IDX_HTTP_STATUS           0 /* e.g. "HTTP/1.0 200 OK\r\n" */
 #define HDR_STRINGS_IDX_SERVER_NAME           1 /* e.g. "Server: "HTTPD_SERVER_AGENT"\r\n" */
 #define HDR_STRINGS_IDX_CONTENT_LEN_KEEPALIVE 2 /* e.g. "Content-Length: xy\r\n" and/or "Connection: keep-alive\r\n" */
 #define HDR_STRINGS_IDX_CONTENT_LEN_NR        3 /* the byte count, when content-length is used */
+#if !LWIP_HTTPD_SUPPORT_COOKIES
 #define HDR_STRINGS_IDX_CONTENT_TYPE          4 /* the content type (or default answer content type including default document) */
+#define NUM_FILE_HDR_STRINGS 5
+#else
+#define HDR_STRINGS_IDX_SET_COOKIE            4 /* Set-Cookie http HTTP response header, used to send a cookie from the server to the user agent */
+#define HDR_STRINGS_IDX_CONTENT_TYPE          5 /* the content type (or default answer content type including default document) */
+#define NUM_FILE_HDR_STRINGS 6
+#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
 
 /* The dynamically generated Content-Length buffer needs space for CRLF + NULL */
 #define LWIP_HTTPD_MAX_CONTENT_LEN_OFFSET 3
@@ -199,6 +205,12 @@ static char http_uri_buf[LWIP_HTTPD_URI_BUF_LEN + 1];
 #define LWIP_HTTPD_MAX_CONTENT_LEN_SIZE   (9 + LWIP_HTTPD_MAX_CONTENT_LEN_OFFSET)
 #endif
 #endif /* LWIP_HTTPD_DYNAMIC_HEADERS */
+
+#if LWIP_HTTPD_SUPPORT_COOKIES
+#define HDR_HTTP_REQ_COOKIE                   "Cookie: " /* Used to filter incoming http requests */
+#define HDR_HTTP_REQ_COOKIE_LEN               8          /* Length of HDR_HTTP_REQ_COOKIE */
+#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
+
 
 #if LWIP_HTTPD_SSI
 
@@ -851,6 +863,9 @@ get_http_headers(struct http_state *hs, const char *uri)
   hs->hdrs[HDR_STRINGS_IDX_SERVER_NAME] = g_psHTTPHeaderStrings[HTTP_HDR_SERVER];
   hs->hdrs[HDR_STRINGS_IDX_CONTENT_LEN_KEEPALIVE] = NULL;
   hs->hdrs[HDR_STRINGS_IDX_CONTENT_LEN_NR] = NULL;
+#if LWIP_HTTPD_SUPPORT_COOKIES
+  hs->hdrs[HDR_STRINGS_IDX_SET_COOKIE] = httpd_set_cookies(hs, uri);
+#endif
 
   /* Is this a normal file or the special case we use to send back the
      default "404: Page not found" response? */
@@ -2093,6 +2108,21 @@ http_parse_request(struct pbuf *inp, struct http_state *hs, struct altcp_pcb *pc
             hs->keepalive = 0;
           }
 #endif /* LWIP_HTTPD_SUPPORT_11_KEEPALIVE */
+#if LWIP_HTTPD_SUPPORT_COOKIES
+          char *cookies = lwip_strnstr(data, HDR_HTTP_REQ_COOKIE, data_len);
+          if (cookies) {
+            cookies += HDR_HTTP_REQ_COOKIE_LEN;
+            left_len = (u16_t)(cookies - data);
+            char *cookies_end = lwip_strnstr(cookies, CRLF, left_len);
+            if (cookies_end) {
+              /* null-terminate the cookies string */
+              *cookies_end = 0;
+              httpd_received_cookies(hs, cookies);
+              /* restore cookies CRLF end */
+              *cookies_end = '\r';
+            }
+          }
+#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
           /* null-terminate the METHOD (pbuf is freed anyway wen returning) */
           *sp1 = 0;
           uri[uri_len] = 0;
@@ -2244,6 +2274,9 @@ http_find_file(struct http_state *hs, const char *uri, int is_09)
       {
         file_name = httpd_default_filenames[loop].name;
       }
+#if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH
+      httpd_authorize_fs_open(hs, &file_name);
+#endif /* #if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH */
       LWIP_DEBUGF(HTTPD_DEBUG | LWIP_DBG_TRACE, ("Looking for %s...\n", file_name));
       err = fs_open(&hs->file_handle, file_name);
       if (err == ERR_OK) {
@@ -2286,6 +2319,9 @@ http_find_file(struct http_state *hs, const char *uri, int is_09)
     }
 #endif /* LWIP_HTTPD_CGI */
 
+#if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH
+    httpd_authorize_fs_open(hs, &uri);
+#endif /* #if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH */
     LWIP_DEBUGF(HTTPD_DEBUG | LWIP_DBG_TRACE, ("Opening %s\n", uri));
 
     err = fs_open(&hs->file_handle, uri);

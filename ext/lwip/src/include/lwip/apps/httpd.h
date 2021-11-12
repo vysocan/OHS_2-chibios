@@ -241,6 +241,52 @@ void httpd_post_data_recved(void *connection, u16_t recved_len);
 
 #endif /* LWIP_HTTPD_SUPPORT_POST */
 
+#if LWIP_HTTPD_SUPPORT_COOKIES
+#define HDR_HTTP_RES_SET_COOKIE "Set-Cookie: " /* Used to build response header */
+
+/* These functions must be implemented by the application */
+
+/**
+ * @ingroup httpd
+ * Supply a response as pointer to a Set-Cokkie: char array ending with \r\n,
+ * or NULL. Such as: "Set-Cookie: <cookie-name>=<cookie-value>; <parm>;\r\n"
+ * Examples: HDR_HTTP_RES_SET_COOKIE "sessionId=38afes\r\n"
+ *           HDR_HTTP_RES_SET_COOKIE "sessionId=38afes; HttpOnly; Secure;\r\n"
+ * A <cookie-name> can contain any US-ASCII characters except for:
+ * the control character, space, tab, or ( ) < > @ , ; : \ " / [ ] ? = { }.
+ * A <cookie-value> can optionally be wrapped in double quotes and include
+ * any US-ASCII character excluding a control character, Whitespace, or " , ; \.
+ *
+ * @param connection Connection pointer.
+ * @param uri The HTTP header URI.
+ * @return Pointer to full Set-Cookie string.
+ *         NULL for no cookie.
+ */
+char *httpd_set_cookies(const void *connection, const char *uri);
+
+/**
+ * @ingroup httpd
+ * Passes cookie(s) for each http request received.
+ *
+ * @param connection Connection pointer.
+ * @param cookies Pointer to received cookies.
+ */
+void httpd_received_cookies(const void *connection, const char *cookies);
+#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
+
+#if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH
+/* These function(s) must be implemented by the application */
+
+/**
+ * @ingroup httpd
+ * Preceedes fs_open() to allow modification of file or uri name pointer.
+ *
+ * @param connection Connection pointer,
+ * @param name File or uri name that is about to be opened,
+ */
+void httpd_authorize_fs_open(void *connection, const char **name);
+#endif /* LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH */
+
 void httpd_init(void);
 
 #if HTTPD_ENABLE_HTTPS

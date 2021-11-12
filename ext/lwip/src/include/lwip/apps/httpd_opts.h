@@ -270,6 +270,19 @@
 #define LWIP_HTTPD_REQ_QUEUELEN             5
 #endif
 
+/** Set this to 1 to support sending and reciving cookies.
+ *  For set cookies this needs LWIP_HTTPD_DYNAMIC_HEADERS!
+ */
+#if !defined LWIP_HTTPD_SUPPORT_COOKIES || defined __DOXYGEN__
+#define LWIP_HTTPD_SUPPORT_COOKIES          0
+#endif
+
+/** Set this to 1 to support fs_open authorization.
+ */
+#if !defined LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH || defined __DOXYGEN__
+#define LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH        0
+#endif
+
 /** Number of (TCP payload-) bytes (in pbufs) to enqueue to parse and incoming
     request (up to the first double-newline) */
 #if !defined LWIP_HTTPD_REQ_BUFSIZE || defined __DOXYGEN__
