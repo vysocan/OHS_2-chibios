@@ -271,7 +271,7 @@
 #endif
 
 /** Set this to 1 to support sending and reciving cookies.
- *  For set cookies this needs LWIP_HTTPD_DYNAMIC_HEADERS!
+ *  To send cookies this needs also LWIP_HTTPD_DYNAMIC_HEADERS!
  */
 #if !defined LWIP_HTTPD_SUPPORT_COOKIES || defined __DOXYGEN__
 #define LWIP_HTTPD_SUPPORT_COOKIES          0

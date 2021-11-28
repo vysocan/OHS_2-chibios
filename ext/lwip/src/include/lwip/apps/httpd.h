@@ -269,7 +269,7 @@ char *httpd_set_cookies(const void *connection, const char *uri);
  * Passes cookie(s) for each http request received.
  *
  * @param connection Connection pointer.
- * @param cookies Pointer to received cookies.
+ * @param cookies Pointer to received cookies. Not to be modifed.
  */
 void httpd_received_cookies(const void *connection, const char *cookies);
 #endif /* LWIP_HTTPD_SUPPORT_COOKIES */

@@ -211,7 +211,6 @@ static char http_uri_buf[LWIP_HTTPD_URI_BUF_LEN + 1];
 #define HDR_HTTP_REQ_COOKIE_LEN               8          /* Length of HDR_HTTP_REQ_COOKIE */
 #endif /* LWIP_HTTPD_SUPPORT_COOKIES */
 
-
 #if LWIP_HTTPD_SSI
 
 #define HTTPD_LAST_TAG_PART 0xFFFF
