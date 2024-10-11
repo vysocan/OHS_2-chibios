@@ -1,0 +1,133 @@
+diff --git a/ext/lwip/src/apps/http/httpd.c b/ext/lwip/src/apps/http/httpd.c
+index 66c7723..a11c9c0 100644
+--- a/ext/lwip/src/apps/http/httpd.c
++++ b/ext/lwip/src/apps/http/httpd.c
+@@ -184,12 +184,18 @@ static char http_uri_buf[LWIP_HTTPD_URI_BUF_LEN + 1];
+ /* The number of individual strings that comprise the headers sent before each
+  * requested file.
+  */
+-#define NUM_FILE_HDR_STRINGS 5
+ #define HDR_STRINGS_IDX_HTTP_STATUS           0 /* e.g. "HTTP/1.0 200 OK\r\n" */
+ #define HDR_STRINGS_IDX_SERVER_NAME           1 /* e.g. "Server: "HTTPD_SERVER_AGENT"\r\n" */
+ #define HDR_STRINGS_IDX_CONTENT_LEN_KEEPALIVE 2 /* e.g. "Content-Length: xy\r\n" and/or "Connection: keep-alive\r\n" */
+ #define HDR_STRINGS_IDX_CONTENT_LEN_NR        3 /* the byte count, when content-length is used */
++#if !LWIP_HTTPD_SUPPORT_COOKIES
+ #define HDR_STRINGS_IDX_CONTENT_TYPE          4 /* the content type (or default answer content type including default document) */
++#define NUM_FILE_HDR_STRINGS 5
++#else
++#define HDR_STRINGS_IDX_SET_COOKIE            4 /* Set-Cookie http HTTP response header, used to send a cookie from the server to the user agent */
++#define HDR_STRINGS_IDX_CONTENT_TYPE          5 /* the content type (or default answer content type including default document) */
++#define NUM_FILE_HDR_STRINGS 6
++#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
+ 
+ /* The dynamically generated Content-Length buffer needs space for CRLF + NULL */
+ #define LWIP_HTTPD_MAX_CONTENT_LEN_OFFSET 3
+@@ -200,6 +206,11 @@ static char http_uri_buf[LWIP_HTTPD_URI_BUF_LEN + 1];
+ #endif
+ #endif /* LWIP_HTTPD_DYNAMIC_HEADERS */
+ 
++#if LWIP_HTTPD_SUPPORT_COOKIES
++#define HDR_HTTP_REQ_COOKIE                   "Cookie: " /* Used to filter incoming http requests */
++#define HDR_HTTP_REQ_COOKIE_LEN               8          /* Length of HDR_HTTP_REQ_COOKIE */
++#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
++
+ #if LWIP_HTTPD_SSI
+ 
+ #define HTTPD_LAST_TAG_PART 0xFFFF
+@@ -851,6 +862,9 @@ get_http_headers(struct http_state *hs, const char *uri)
+   hs->hdrs[HDR_STRINGS_IDX_SERVER_NAME] = g_psHTTPHeaderStrings[HTTP_HDR_SERVER];
+   hs->hdrs[HDR_STRINGS_IDX_CONTENT_LEN_KEEPALIVE] = NULL;
+   hs->hdrs[HDR_STRINGS_IDX_CONTENT_LEN_NR] = NULL;
++#if LWIP_HTTPD_SUPPORT_COOKIES
++  hs->hdrs[HDR_STRINGS_IDX_SET_COOKIE] = httpd_set_cookies(hs, uri);
++#endif
+ 
+   /* Is this a normal file or the special case we use to send back the
+      default "404: Page not found" response? */
+@@ -2093,6 +2107,21 @@ http_parse_request(struct pbuf *inp, struct http_state *hs, struct altcp_pcb *pc
+             hs->keepalive = 0;
+           }
+ #endif /* LWIP_HTTPD_SUPPORT_11_KEEPALIVE */
++#if LWIP_HTTPD_SUPPORT_COOKIES
++          char *cookies = lwip_strnstr(data, HDR_HTTP_REQ_COOKIE, data_len);
++          if (cookies) {
++            cookies += HDR_HTTP_REQ_COOKIE_LEN;
++            left_len = (u16_t)(cookies - data);
++            char *cookies_end = lwip_strnstr(cookies, CRLF, left_len);
++            if (cookies_end) {
++              /* null-terminate the cookies string */
++              *cookies_end = 0;
++              httpd_received_cookies(hs, cookies);
++              /* restore cookies CRLF end */
++              *cookies_end = '\r';
++            }
++          }
++#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
+           /* null-terminate the METHOD (pbuf is freed anyway wen returning) */
+           *sp1 = 0;
+           uri[uri_len] = 0;
+diff --git a/ext/lwip/src/include/lwip/apps/httpd.h b/ext/lwip/src/include/lwip/apps/httpd.h
+index e872429..8f03557 100644
+--- a/ext/lwip/src/include/lwip/apps/httpd.h
++++ b/ext/lwip/src/include/lwip/apps/httpd.h
+@@ -241,6 +241,42 @@ void httpd_post_data_recved(void *connection, u16_t recved_len);
+ 
+ #endif /* LWIP_HTTPD_SUPPORT_POST */
+ 
++#if LWIP_HTTPD_SUPPORT_COOKIES
++#define HDR_HTTP_RES_SET_COOKIE "Set-Cookie: " /* Used to build response header */
++
++/* These functions must be implemented by the application */
++
++/**
++ * @ingroup httpd
++ * Supply a response as pointer to a Set-Cokkie: char array ending with \r\n,
++ * or NULL. Such as: "Set-Cookie: <cookie-name>=<cookie-value>; <parm>;\r\n"
++ * Examples: HDR_HTTP_RES_SET_COOKIE "sessionId=38afes\r\n"
++ *           HDR_HTTP_RES_SET_COOKIE "sessionId=38afes; HttpOnly; Secure;\r\n"
++ * A <cookie-name> can contain any US-ASCII characters except for:
++ * the control character, space, tab, or ( ) < > @ , ; : \ " / [ ] ? = { }.
++ * A <cookie-value> can optionally be wrapped in double quotes and include
++ * any US-ASCII character excluding a control character, Whitespace, or " , ; \.
++ *
++ * @param connection Connection pointer.
++ * @param uri The HTTP header URI.
++ * @return Pointer to full Set-Cookie string.
++ *         NULL for no cookie.
++ */
++char *httpd_set_cookies(const void *connection, const char *uri);
++
++/**
++ * @ingroup httpd
++ * Passes cookie(s) for each http request received.
++ *
++ * @param connection Connection pointer.
++ * @param cookies Pointer to received cookies. Not to be modifed.
++ */
++void httpd_received_cookies(const void *connection, const char *cookies);
++#endif /* LWIP_HTTPD_SUPPORT_COOKIES */
++
++#if LWIP_HTTPD_SUPPORT_FS_OPEN_AUTH
++/* These function(s) must be implemented by the application */
++
+ void httpd_init(void);
+ 
+ #if HTTPD_ENABLE_HTTPS
+diff --git a/ext/lwip/src/include/lwip/apps/httpd_opts.h b/ext/lwip/src/include/lwip/apps/httpd_opts.h
+index 2b66e67..7dbee57 100644
+--- a/ext/lwip/src/include/lwip/apps/httpd_opts.h
++++ b/ext/lwip/src/include/lwip/apps/httpd_opts.h
+@@ -270,6 +270,13 @@
+ #define LWIP_HTTPD_REQ_QUEUELEN             5
+ #endif
+ 
++/** Set this to 1 to support sending and reciving cookies.
++ *  To send cookies this needs also LWIP_HTTPD_DYNAMIC_HEADERS!
++ */
++#if !defined LWIP_HTTPD_SUPPORT_COOKIES || defined __DOXYGEN__
++#define LWIP_HTTPD_SUPPORT_COOKIES          0
++#endif
++
+ /** Number of (TCP payload-) bytes (in pbufs) to enqueue to parse and incoming
+     request (up to the first double-newline) */
+ #if !defined LWIP_HTTPD_REQ_BUFSIZE || defined __DOXYGEN__

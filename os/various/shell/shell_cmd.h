@@ -34,7 +34,7 @@
 /*===========================================================================*/
 
 #if !defined(SHELL_CMD_EXIT_ENABLED) || defined(__DOXYGEN__)
-#define SHELL_CMD_EXIT_ENABLED              TRUE
+#define SHELL_CMD_EXIT_ENABLED              FALSE
 #endif
 
 #if !defined(SHELL_CMD_INFO_ENABLED) || defined(__DOXYGEN__)

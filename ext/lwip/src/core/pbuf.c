@@ -441,8 +441,11 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
 #endif /* LWIP_SUPPORT_CUSTOM_PBUF */
      ) {
     /* reallocate and adjust the length of the pbuf that will be split */
-    q = (struct pbuf *)mem_trim(q, (mem_size_t)(((u8_t *)q->payload - (u8_t *)q) + rem_len));
-    LWIP_ASSERT("mem_trim returned q == NULL", q != NULL);
+    struct pbuf *r = (struct pbuf *)mem_trim(q, (mem_size_t)(((u8_t *)q->payload - (u8_t *)q) + rem_len));
+    LWIP_ASSERT("mem_trim returned r == NULL", r != NULL);
+    /* help to detect faulty overridden implementation of mem_trim */
+    LWIP_ASSERT("mem_trim returned r != q", r == q);
+    LWIP_UNUSED_ARG(r);
   }
   /* adjust length fields for new last pbuf */
   q->len = rem_len;
@@ -677,7 +680,7 @@ pbuf_free_header(struct pbuf *q, u16_t size)
       struct pbuf *f = p;
       free_left = (u16_t)(free_left - p->len);
       p = p->next;
-      f->next = 0;
+      f->next = NULL;
       pbuf_free(f);
     } else {
       pbuf_remove_header(p, free_left);
@@ -1008,7 +1011,7 @@ pbuf_copy_partial_pbuf(struct pbuf *p_to, const struct pbuf *p_from, u16_t copy_
     MEMCPY((u8_t *)p_to->payload + offset_to, (u8_t *)p_from->payload + offset_from, len);
     offset_to += len;
     offset_from += len;
-    copy_len -= len;
+    copy_len = (u16_t)(copy_len - len);
     LWIP_ASSERT("offset_to <= p_to->len", offset_to <= p_to->len);
     LWIP_ASSERT("offset_from <= p_from->len", offset_from <= p_from->len);
     if (offset_from >= p_from->len) {
@@ -1200,7 +1203,7 @@ pbuf_skip_const(const struct pbuf *in, u16_t in_offset, u16_t *out_offset)
  * @param in input pbuf
  * @param in_offset offset to skip
  * @param out_offset resulting offset in the returned pbuf
- * @return the pbuf in the queue where the offset is
+ * @return the pbuf in the queue where the offset is or NULL when the offset is too high
  */
 struct pbuf *
 pbuf_skip(struct pbuf *in, u16_t in_offset, u16_t *out_offset)

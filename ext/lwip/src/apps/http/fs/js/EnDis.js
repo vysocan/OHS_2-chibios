@@ -1,0 +1,13 @@
+function en1(){
+for(var i=0;i<e1.length;i++){e1[i].disabled=true;}
+for(var i=0;i<d1.length;i++){d1[i].disabled=false;}}
+function dis1(){
+for(var i=0;i<e1.length;i++){e1[i].disabled=false;}
+for(var i=0;i<d1.length;i++){d1[i].disabled=true;}}
+function en2(){
+for(var i=0;i<e2.length;i++){e2[i].disabled=true;}
+for(var i=0;i<d2.length;i++){d2[i].disabled=false;}}
+function dis2(){
+for(var i=0;i<e2.length;i++){e2[i].disabled=false;}
+for(var i=0;i<d2.length;i++){d2[i].disabled=true;}}
+function ca(){if(document.getElementById("at")!=null){setTimeout(function(){document.getElementById("at").style.display="none";},10000);}}

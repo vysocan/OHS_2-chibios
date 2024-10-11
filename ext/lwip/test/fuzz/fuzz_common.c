@@ -192,7 +192,11 @@ static void input_pkt(struct netif *netif, const u8_t *data, size_t len)
   struct pbuf *p, *q;
   err_t err;
 
-  LWIP_ASSERT("pkt too big", len <= 0xFFFF);
+  if (len > 0xFFFF) {
+    printf("pkt too big (%#zX bytes)\n", len);
+    return;
+  }
+
   p = pbuf_alloc(PBUF_RAW, (u16_t)len, PBUF_POOL);
   LWIP_ASSERT("alloc failed", p);
   for(q = p; q != NULL; q = q->next) {
@@ -228,7 +232,7 @@ static void input_pkts(enum lwip_fuzz_type type, struct netif *netif, const u8_t
 #ifdef LWIP_FUZZ_SYS_NOW
         /* Extract external delay time from fuzz pool */
         memcpy(&external_delay, remfuzz_ptr, sizeof(u32_t));
-        external_delay = htonl(external_delay);
+        external_delay = ntohl(external_delay);
 #endif
         remfuzz_ptr += sizeof(u32_t);
         remfuzz_len -= sizeof(u32_t);
@@ -236,7 +240,7 @@ static void input_pkts(enum lwip_fuzz_type type, struct netif *netif, const u8_t
       memcpy(&frame_len, remfuzz_ptr, sizeof(u16_t));
       remfuzz_ptr += sizeof(u16_t);
       remfuzz_len -= sizeof(u16_t);
-      frame_len = htons(frame_len) & 0x7FF;
+      frame_len = ntohs(frame_len) & 0x7FF;
       frame_len = LWIP_MIN(frame_len, max_packet_size);
       if (frame_len > remfuzz_len) {
         frame_len = (u16_t)remfuzz_len;
@@ -283,7 +287,7 @@ tcp_app_fuzz_input(struct altcp_pcb *pcb)
     memcpy(&data_len, remfuzz_ptr, sizeof(u16_t));
     remfuzz_ptr += sizeof(u16_t);
     remfuzz_len -= sizeof(u16_t);
-    data_len = htons(data_len);
+    data_len = ntohs(data_len);
     data_len = LWIP_MIN(data_len, max_data_size);
     if (data_len > remfuzz_len) {
       data_len = (u16_t)remfuzz_len;
@@ -486,7 +490,7 @@ udp_app_fuzz_input(struct udp_pcb *pcb, const ip_addr_t *addr, u16_t port)
     memcpy(&data_len, remfuzz_ptr, sizeof(u16_t));
     remfuzz_ptr += sizeof(u16_t);
     remfuzz_len -= sizeof(u16_t);
-    data_len = htons(data_len);
+    data_len = ntohs(data_len);
     data_len = LWIP_MIN(data_len, max_data_size);
     if (data_len > remfuzz_len) {
       data_len = (u16_t)remfuzz_len;
@@ -688,8 +692,8 @@ u32_t lwip_fuzz_rand(void)
   /* a simple LCG, unsafe but should give the same result for every execution (best for fuzzing) */
   u32_t result;
   static s32_t state[1] = {0xdeadbeef};
-  s32_t val = state[0];
-  val = ((state[0] * 1103515245) + 12345) & 0x7fffffff;
+  uint64_t val = state[0] & 0xffffffff;
+  val = ((val * 1103515245) + 12345) & 0x7fffffff;
   state[0] = val;
   result = val;
   return result;

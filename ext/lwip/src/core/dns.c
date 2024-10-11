@@ -487,7 +487,7 @@ dns_local_lookup(const char *hostname, ip_addr_t *addr, u8_t dns_addrtype)
     hostnamelen--;
   }
   if (hostnamelen >= DNS_MAX_NAME_LENGTH) {
-    LWIP_DEBUGF(DNS_DEBUG, ("dns_local_lookup: name too long to resolve"));
+    LWIP_DEBUGF(DNS_DEBUG, ("dns_local_lookup: name too long to resolve\n"));
     return ERR_ARG;
   }
   return dns_lookup_local(hostname, hostnamelen, addr LWIP_DNS_ADDRTYPE_ARG(dns_addrtype));
@@ -1421,7 +1421,7 @@ dns_enqueue(const char *name, size_t hostnamelen, dns_found_callback found,
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
       /* this is a duplicate entry, find a free request entry */
       for (r = 0; r < DNS_MAX_REQUESTS; r++) {
-        if (dns_requests[r].found == 0) {
+        if (dns_requests[r].found == NULL) {
           dns_requests[r].found = found;
           dns_requests[r].arg = callback_arg;
           dns_requests[r].dns_table_idx = i;
@@ -1590,7 +1590,7 @@ dns_gethostbyname_addrtype(const char *hostname, ip_addr_t *addr, dns_found_call
     hostnamelen--;
   }
   if (hostnamelen >= DNS_MAX_NAME_LENGTH) {
-    LWIP_DEBUGF(DNS_DEBUG, ("dns_gethostbyname: name too long to resolve"));
+    LWIP_DEBUGF(DNS_DEBUG, ("dns_gethostbyname: name too long to resolve\n"));
     return ERR_ARG;
   }
 

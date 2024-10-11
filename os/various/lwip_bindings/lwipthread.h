@@ -259,6 +259,9 @@ typedef struct lwipreconf_opts {
   net_addr_mode_t addrMode;
 } lwipreconf_opts_t;
 
+/*
+ * OHS Added
+ */
 // Network information
 typedef struct {
   uint32_t ip;
@@ -275,6 +278,12 @@ extern "C" {
   void lwipDefaultLinkDownCB(void *p);
   void lwipInit(const lwipthread_opts_t *opts);
   void lwipReconfigure(const lwipreconf_opts_t *opts);
+  /*
+   * OHS added
+   */
+//  #if LWIP_IGMP
+//  static err_t ethernetif_igmp_mac_filter(struct netif *netif, ip_addr_t *group, u8_t action);
+//  #endif
 #ifdef __cplusplus
 }
 #endif

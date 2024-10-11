@@ -372,26 +372,26 @@ uint32_t MacHashFast(const uint8_t *Mac) // sourcer32@gmail.com
 /*
  * OHS added
  */
-#if LWIP_IGMP
-static err_t ethernetif_igmp_mac_filter(struct netif *netif, ip_addr_t *group, u8_t action) {
-  uint32_t devNumber = 0;
-  uint32_t hash;
-
-#if LWIP_HAVE_LOOPIF
-  devNumber = netif->num - 1;
-#else
-  devNumber = netif->num;
-#endif
-  switch (action) {
-    case IGMP_ADD_MAC_FILTER:
-      return ENET_DRV_AddMulticastGroup(devNumber, (uint8_t *) group, &hash);
-    case IGMP_DEL_MAC_FILTER:
-      return ENET_DRV_LeaveMulticastGroup(devNumber, (uint8_t *) group);
-    default:
-      return ERR_IF;
-  }
-}
-#endif
+//#if LWIP_IGMP
+//static err_t ethernetif_igmp_mac_filter(struct netif *netif, ip_addr_t *group, u8_t action) {
+//  uint32_t devNumber = 0;
+//  uint32_t hash;
+//
+//#if LWIP_HAVE_LOOPIF
+//  devNumber = netif->num - 1;
+//#else
+//  devNumber = netif->num;
+//#endif
+//  switch (action) {
+//    case IGMP_ADD_MAC_FILTER:
+//      return ENET_DRV_AddMulticastGroup(devNumber, (uint8_t *) group, &hash);
+//    case IGMP_DEL_MAC_FILTER:
+//      return ENET_DRV_LeaveMulticastGroup(devNumber, (uint8_t *) group);
+//    default:
+//      return ERR_IF;
+//  }
+//}
+//#endif
 
 // OHS added
 NETIF_DECLARE_EXT_CALLBACK(netif_callback_1)
@@ -500,9 +500,6 @@ static THD_FUNCTION(lwip_thread, p) {
   igmp_init();
   result = igmp_start(&thisif);
 #endif
-  // OHS added, MDNS
-  //result = mdns_resp_add_netif(&thisif, "ohs");
-  //mdns_resp_announce(&thisif);
 
   while (true) {
     eventmask_t mask = chEvtWaitAny(ALL_EVENTS);
